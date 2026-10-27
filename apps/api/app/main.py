@@ -20,6 +20,9 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.v1.audit_logs import router as audit_logs_router
 from app.api.v1.auth import router as auth_router
+from app.api.v1.consent import router as consent_router
+from app.api.v1.onboarding import router as onboarding_router
+from app.api.v1.participants import router as participants_router
 from app.api.v1.resources import router as resources_router
 from app.api.v1.users import router as users_router
 from app.core.config import settings
@@ -115,11 +118,14 @@ async def add_security_headers(
     return response
 
 
-# Include Core Phase P3 Routers
+# Include Core Routers
 app.include_router(auth_router, prefix=settings.API_PREFIX)
 app.include_router(users_router, prefix=settings.API_PREFIX)
 app.include_router(audit_logs_router, prefix=settings.API_PREFIX)
 app.include_router(resources_router, prefix=settings.API_PREFIX)
+app.include_router(participants_router, prefix=settings.API_PREFIX)
+app.include_router(consent_router, prefix=settings.API_PREFIX)
+app.include_router(onboarding_router, prefix=settings.API_PREFIX)
 
 
 # Health & Readiness Probes

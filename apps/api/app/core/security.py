@@ -75,6 +75,10 @@ def hash_ip(ip: str | None) -> str | None:
     return hashlib.sha256(f"{salt}:{ip}".encode()).hexdigest()[:32]
 
 
+# Alias for semantic clarity
+hash_ip_address = hash_ip
+
+
 def generate_secure_token(nbytes: int = 32) -> str:
     """Generate cryptographically secure URL-safe random string."""
     return secrets.token_urlsafe(nbytes)

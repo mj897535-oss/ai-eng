@@ -103,14 +103,21 @@ async def require_active_user(
     return current_user
 
 
-def require_roles(*allowed_roles: UserRole) -> Callable[[User], Coroutine[Any, Any, User]]:
+def require_roles(*roles: UserRole | list[UserRole] | set[UserRole] | tuple[UserRole, ...]) -> Callable[[User], Coroutine[Any, Any, User]]:
     """Reusable dependency generating role verification guard."""
+    flat_roles: set[UserRole] = set()
+    for r in roles:
+        if isinstance(r, (list, set, tuple)):
+            flat_roles.update(r)
+        else:
+            flat_roles.add(r)
+
     async def role_checker(
         user: Annotated[User, Depends(require_active_user)],
     ) -> User:
         # Check direct role value or compatible alias
-        if user.role not in allowed_roles:
-            role_names = ", ".join(r.value for r in allowed_roles)
+        if user.role not in flat_roles:
+            role_names = ", ".join(r.value for r in flat_roles)
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Access denied. Requires one of the following roles: {role_names}.",

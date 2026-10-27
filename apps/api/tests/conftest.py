@@ -22,6 +22,7 @@ API_DIR = Path(__file__).resolve().parent.parent
 if str(API_DIR) not in sys.path:
     sys.path.insert(0, str(API_DIR))
 
+from app.core.config import settings
 from app.core.database import get_db
 from app.core.rate_limit import rate_limiter
 from app.core.security import get_password_hash
@@ -58,7 +59,7 @@ async def test_engine() -> AsyncGenerator[Any, None]:
     )
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        # Attach append-only triggers to audit_logs for in-memory SQLite
+        # Attach append-only triggers to audit_logs and consents for in-memory SQLite
         await conn.execute(text("""
             CREATE TRIGGER IF NOT EXISTS trg_audit_no_update
             BEFORE UPDATE ON audit_logs
@@ -71,6 +72,20 @@ async def test_engine() -> AsyncGenerator[Any, None]:
             BEFORE DELETE ON audit_logs
             BEGIN
                 SELECT RAISE(FAIL, 'RESEARCH INTEGRITY VIOLATION: Records in audit_logs are strictly append-only.');
+            END;
+        """))
+        await conn.execute(text("""
+            CREATE TRIGGER IF NOT EXISTS trg_consents_no_update
+            BEFORE UPDATE ON consents
+            BEGIN
+                SELECT RAISE(FAIL, 'RESEARCH INTEGRITY VIOLATION: Records in consents are strictly append-only.');
+            END;
+        """))
+        await conn.execute(text("""
+            CREATE TRIGGER IF NOT EXISTS trg_consents_no_delete
+            BEFORE DELETE ON consents
+            BEGIN
+                SELECT RAISE(FAIL, 'RESEARCH INTEGRITY VIOLATION: Records in consents are strictly append-only.');
             END;
         """))
 
@@ -134,6 +149,9 @@ async def seeded_data(test_session: AsyncSession) -> dict[str, Any]:
         school_medium="English",
         country="India",
         study_group=StudyGroup.INTERVENTION,
+        current_consent_version=settings.CURRENT_CONSENT_VERSION,
+        is_active=True,
+        is_withdrawn=False,
     )
 
     # 3. Participant B
@@ -154,6 +172,9 @@ async def seeded_data(test_session: AsyncSession) -> dict[str, Any]:
         school_medium="English",
         country="India",
         study_group=StudyGroup.CONTROL,
+        current_consent_version=settings.CURRENT_CONSENT_VERSION,
+        is_active=True,
+        is_withdrawn=False,
     )
 
     # 4. Reviewer 1 (Will be assigned Assessment A1)

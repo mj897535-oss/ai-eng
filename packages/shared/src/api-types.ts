@@ -98,3 +98,98 @@ export interface ComparativeMetricsResult {
   relative_reduction_formatted: string;
   category_breakdown: Record<string, { pre_count: number; post_count: number; pre_rate: number; post_rate: number }>;
 }
+
+// --- Phase P4 Participant, Consent & Onboarding Types ---
+
+export type StudyGroup = "intervention" | "control";
+
+export interface Participant {
+  participant_id: string;
+  research_code: string;
+  study_group: StudyGroup;
+  is_group_blinded: boolean;
+  is_active: boolean;
+  is_withdrawn: boolean;
+  age?: number | null;
+  age_band?: string | null;
+  mother_tongue?: string | null;
+  school_medium?: string | null;
+  country?: string | null;
+  state?: string | null;
+  city?: string | null;
+  current_consent_version?: string | null;
+  consented_at?: string | null;
+  withdrawn_at?: string | null;
+  withdrawal_reason?: string | null;
+  onboarding_completed: boolean;
+  onboarding_step: "consent" | "profile" | "mic_check" | "what_next" | "completed" | "withdrawn";
+  created_at: string;
+}
+
+export interface CSVRowValidation {
+  row_number: number;
+  research_code: string;
+  study_group: string;
+  email?: string | null;
+  age?: number | null;
+  age_band?: string | null;
+  mother_tongue?: string | null;
+  school_medium?: string | null;
+  country?: string | null;
+  state?: string | null;
+  city?: string | null;
+  is_valid: boolean;
+  error_reason?: string | null;
+}
+
+export interface CSVImportResult {
+  dry_run: boolean;
+  total_rows: number;
+  valid_count: number;
+  rejected_count: number;
+  duplicate_count: number;
+  valid_rows: CSVRowValidation[];
+  rejected_rows: CSVRowValidation[];
+  duplicates_found: Array<{ row_number: number; research_code: string; reason: string }>;
+  can_commit: boolean;
+}
+
+export interface ConsentDocument {
+  version: string;
+  effective_date: string;
+  title: string;
+  text: string;
+  withdrawal_policy: string;
+  already_consented: boolean;
+  consented_version?: string | null;
+  is_withdrawn: boolean;
+}
+
+export interface OnboardingState {
+  participant_id: string;
+  research_code: string;
+  onboarding_completed: boolean;
+  current_step: "consent" | "profile" | "mic_check" | "what_next" | "completed" | "withdrawn";
+  is_withdrawn: boolean;
+  consent_status: {
+    agreed: boolean;
+    version?: string | null;
+    consented_at?: string | null;
+  };
+  profile: {
+    age?: number | null;
+    age_band?: string | null;
+    mother_tongue?: string | null;
+    school_medium?: string | null;
+    country?: string | null;
+    state?: string | null;
+    city?: string | null;
+  };
+  config: {
+    collect_name: boolean;
+    age_collection_mode: "exact" | "band";
+    collect_geography: boolean;
+    current_consent_version: string;
+  };
+}
+

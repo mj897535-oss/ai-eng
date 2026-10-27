@@ -70,6 +70,44 @@ class Settings(BaseSettings):
     DEFAULT_STT_VERSION: str = "mock-stt-v1"
     MAX_COHORT_SIZE: int = 120
 
+    # Phase P4 Protocol & Onboarding Configuration
+    COLLECT_NAME: bool = False
+    AGE_COLLECTION_MODE: Literal["exact", "band"] = "band"
+    COLLECT_GEOGRAPHY: bool = True
+    RESEARCH_CODE_PREFIX: str = "SL-2026-"
+    BLIND_STUDY_GROUP_FROM_PARTICIPANTS: bool = True
+    CURRENT_CONSENT_VERSION: str = "v1.0-jam-2026"
+    CONSENT_EFFECTIVE_DATE: str = "2026-01-15"
+    CONSENT_DOCUMENT_TITLE: str = "Informed Consent for Syntactic Assessment & Personalized Tutoring Study"
+    CONSENT_DOCUMENT_TEXT: str = """# Research Participant Informed Consent
+
+**Study Title:** Longitudinal Evaluation of Form-Focused AI Conversational Tutoring on Spoken English Syntactic Accuracy
+**Principal Investigator:** Research Team, Department of Linguistics and Language Technology
+**Protocol Version:** v1.0-jam-2026 (Effective: January 15, 2026)
+
+### 1. Purpose of the Study
+You are invited to participate in a doctoral research study examining spoken English grammatical development in engineering college students. The purpose is to evaluate whether short, personalized conversational interactions with an AI tutor targeting specific syntactic structures assist learners in noticing and self-correcting grammar patterns in spontaneous speech.
+
+### 2. Procedures
+If you agree to participate, you will:
+1. Complete a brief demographic profile (mother tongue, schooling medium).
+2. Record an initial 1-minute spontaneous speaking response on a familiar daily topic (pre-test).
+3. If allocated to the tutoring group, participate in short speaking practice sessions over a 3-week study period.
+4. Record a 1-minute post-test speaking sample on a comparable topic.
+
+### 3. Audio & Data Handling
+- **Pseudonymity:** You are assigned a unique, random research code (e.g., `SL-2026-0001`). Your real name and email are kept in a separate secure authentication store and are never attached to research recordings or analysis files.
+- **Recordings:** Spoken audio is stored in private, encrypted object storage. Audio is used solely for speech-to-text transcription and grammatical analysis. No audio will ever be published publicly.
+- **No Evaluation Grading:** This study is strictly non-evaluative. Your performance has no connection to academic grading, college marks, or formal English certification.
+
+### 4. Voluntary Participation and Right to Withdraw
+Participation is entirely voluntary. You may choose to withdraw from this study at any time without giving a reason and without any negative consequences. Upon withdrawal, further data collection ceases immediately, and your records are handled in accordance with the study retention protocol."""
+    WITHDRAWAL_POLICY_TEXT: str = """### Right to Withdraw
+You may withdraw from this research study at any time. When you click 'Withdraw Consent':
+1. All future audio collection, assessments, and tutoring sessions are immediately stopped.
+2. Your account is flagged as withdrawn and quarantined from future study periods.
+3. Your data will not be included in subsequent research publications or aggregate models."""
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

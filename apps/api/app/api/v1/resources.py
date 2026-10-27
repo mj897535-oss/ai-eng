@@ -32,9 +32,9 @@ class ParticipantProfileResponse(BaseModel):
     participant_id: uuid.UUID
     research_code: str
     age: int | None
-    mother_tongue: str
-    school_medium: str
-    country: str
+    mother_tongue: str | None = None
+    school_medium: str | None = None
+    country: str | None = None
     study_group: str
     is_withdrawn: bool
 

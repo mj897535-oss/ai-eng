@@ -14,10 +14,39 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.config import settings
 from app.models.assessment import Assessment, ReviewerAssignment
 from app.models.identity import User, UserRole
 from app.models.research import Participant
 from app.services.audit import AuditService
+
+
+def require_valid_consent(participant: Participant) -> None:
+    """Consent Gating Invariant: Refuses recording or assessment access without active consent.
+
+    Rules:
+    - Participant must not be withdrawn (is_withdrawn == False).
+    - Participant must be active (is_active == True).
+    - Participant must have consented to the current study consent version.
+    """
+    if participant.is_withdrawn:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied: Research consent has been withdrawn. Audio recording and assessment activities are blocked.",
+        )
+    if not participant.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied: Participant account is inactive.",
+        )
+    if (
+        not participant.current_consent_version
+        or participant.current_consent_version != settings.CURRENT_CONSENT_VERSION
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Consent required: You must review and agree to the current research consent document ({settings.CURRENT_CONSENT_VERSION}) before recording or completing assessments.",
+        )
 
 
 async def authorize_participant_access(
@@ -120,6 +149,13 @@ async def authorize_recording_access(
 ) -> Assessment:
     """Authorize access to raw audio recording and log to append-only audit trail."""
     assessment = await authorize_assessment_access(current_user, assessment_id, db)
+
+    # Consent Gating Rule: Participants must have active consent to access audio
+    if current_user.role in {UserRole.PARTICIPANT, UserRole.STUDENT}:
+        part_stmt = select(Participant).where(Participant.participant_id == assessment.participant_id)
+        participant = (await db.execute(part_stmt)).scalar_one_or_none()
+        if participant:
+            require_valid_consent(participant)
 
     # Audit the recording access event per SRS FR-19
     client_ip = request.client.host if request.client else None

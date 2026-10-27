@@ -207,26 +207,43 @@ class AuditService:
         )
 
     @classmethod
-    async def log_review_edit(
+    async def log_event(
         cls,
         db: AsyncSession,
-        reviewer_id: uuid.UUID,
-        role: str,
-        annotation_id: uuid.UUID,
-        decision: str,
-        ip_address: str | None,
-        user_agent: str | None,
+        action: str,
+        actor_id: uuid.UUID | None = None,
+        role: str | None = None,
+        record_type: str = "research",
+        record_id: str | None = None,
+        outcome: str = "success",
+        ip_hash: str | None = None,
+        user_agent: str | None = None,
         details: dict[str, Any] | None = None,
     ) -> AuditLog:
-        return await cls.log(
-            db=db,
-            action="review_edit",
-            record_type="review",
-            record_id=str(annotation_id),
-            actor_id=reviewer_id,
+        """Helper to append an audit entry with already-hashed IP or explicit details."""
+        details_str = json.dumps(details) if details else None
+        entry = AuditLog(
+            log_id=uuid.uuid4(),
+            actor_id=actor_id,
             role=role,
-            outcome="success",
-            ip_address=ip_address,
-            user_agent=user_agent,
-            details={"decision": decision, **(details or {})},
+            action=action,
+            record_type=record_type,
+            record_id=str(record_id or "system"),
+            outcome=outcome,
+            ip_hash=ip_hash,
+            user_agent=user_agent[:255] if user_agent else None,
+            details=details_str,
+            timestamp=datetime.utcnow(),
         )
+        db.add(entry)
+        try:
+            await db.commit()
+            await db.refresh(entry)
+        except Exception as e:
+            await db.rollback()
+            logger.error("Failed to commit audit log event (%s): %s", action, e)
+        return entry
+
+
+audit_service = AuditService()
+

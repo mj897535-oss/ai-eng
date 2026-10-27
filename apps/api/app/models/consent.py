@@ -42,3 +42,5 @@ class Consent(Base, TimestampMixin):
         default=ConsentStatus.CONSENTED,
         nullable=False,
     )
+    ip_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(String(500), nullable=True)
