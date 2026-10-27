@@ -110,7 +110,10 @@ class Assessment(Base, TimestampMixin):
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     stt_version: Mapped[str] = mapped_column(String(50), nullable=False)
     rubric_version: Mapped[str] = mapped_column(String(50), nullable=False)
+    prompt_version: Mapped[str | None] = mapped_column(String(50), nullable=True)
     model_version: Mapped[str] = mapped_column(String(50), nullable=False)
+    is_visible_to_participant: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    model_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Relationships
     revisions: Mapped[list["TranscriptRevision"]] = relationship(
@@ -160,7 +163,11 @@ class ErrorAnnotation(Base, TimestampMixin):
     explanation: Mapped[str] = mapped_column(Text, nullable=False)
     confidence: Mapped[float] = mapped_column(Float, nullable=False)
     ai_status: Mapped[str] = mapped_column(String(50), default="candidate", nullable=False)
+    flag: Mapped[str] = mapped_column(String(50), default="candidate_error", nullable=False)
+    rubric_version: Mapped[str] = mapped_column(String(50), default="v1.0-jam-phd", nullable=False)
+    prompt_version: Mapped[str] = mapped_column(String(50), default="v1.0-assessor", nullable=False)
     model_version: Mapped[str] = mapped_column(String(50), nullable=False)
+    raw_model_output_ref: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     # Relationship
     assessment: Mapped["Assessment"] = relationship(
@@ -322,4 +329,14 @@ def enforce_assessment_transcript_immutability(mapper, connection, target: Asses
                 "Assessments transcript is immutable once written and cannot be modified. "
                 "Record a transcript_revision instead."
             )
+
+
+@event.listens_for(ErrorAnnotation, "before_update")
+def enforce_annotation_immutable_update(mapper, connection, target: ErrorAnnotation) -> None:
+    raise ValueError("ErrorAnnotation records are append-only research artefacts and cannot be updated.")
+
+
+@event.listens_for(ErrorAnnotation, "before_delete")
+def enforce_annotation_immutable_delete(mapper, connection, target: ErrorAnnotation) -> None:
+    raise ValueError("ErrorAnnotation records are append-only research artefacts and cannot be deleted.")
 

@@ -66,9 +66,18 @@ class Settings(BaseSettings):
     # Research Protocol Defaults
     DEFAULT_RUBRIC_VERSION: str = "v1.0-jam-phd"
     DEFAULT_PROMPT_VERSION: str = "v1.0-tutor-ladder"
+    DEFAULT_ASSESSOR_PROMPT_VERSION: str = "v1.0-assessor"
     DEFAULT_MODEL_VERSION: str = "mock-syntax-v1"
     DEFAULT_STT_VERSION: str = "mock-stt-v1"
     MAX_COHORT_SIZE: int = 120
+
+    # Phase P8 Error Analysis & Evidence Lens Configuration
+    ANNOTATION_CONFIDENCE_THRESHOLD: float = 0.85
+    REVIEW_ALL_MODE: bool = False
+    MAX_ANALYSIS_RETRIES: int = 3
+    PARTICIPANT_VISIBILITY_DEFAULT: bool = False
+    GEMINI_API_KEY: str | None = None
+    LLM_MODEL: str = "gemini-1.5-pro"
 
     # Phase P4 Protocol & Onboarding Configuration
     COLLECT_NAME: bool = False
