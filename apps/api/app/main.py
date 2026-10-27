@@ -1,7 +1,7 @@
 """SyntaxLens FastAPI Application Entry Point.
 
 Provides structured JSON logging, request IDs, consistent error schemas,
-and health/readiness probes.
+health/readiness probes, and core security routers.
 """
 
 import time
@@ -18,6 +18,10 @@ from pydantic import BaseModel
 from sqlalchemy import text
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.api.v1.audit_logs import router as audit_logs_router
+from app.api.v1.auth import router as auth_router
+from app.api.v1.resources import router as resources_router
+from app.api.v1.users import router as users_router
 from app.core.config import settings
 from app.core.database import async_engine
 from app.core.logging import logger
@@ -111,6 +115,13 @@ async def add_security_headers(
     return response
 
 
+# Include Core Phase P3 Routers
+app.include_router(auth_router, prefix=settings.API_PREFIX)
+app.include_router(users_router, prefix=settings.API_PREFIX)
+app.include_router(audit_logs_router, prefix=settings.API_PREFIX)
+app.include_router(resources_router, prefix=settings.API_PREFIX)
+
+
 # Health & Readiness Probes
 @app.get(f"{settings.API_PREFIX}/health", tags=["System"])
 async def health_check() -> dict[str, Any]:
@@ -159,6 +170,7 @@ async def starlette_http_exception_handler(
         404: "NOT_FOUND",
         409: "CONFLICT",
         422: "UNPROCESSABLE_ENTITY",
+        423: "ACCOUNT_LOCKED",
         429: "TOO_MANY_REQUESTS",
     }
     code = code_map.get(exc.status_code, "HTTP_ERROR")

@@ -1,5 +1,6 @@
 """Application Settings and Configuration."""
 
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -50,12 +51,17 @@ class Settings(BaseSettings):
     STT_PROVIDER: str = "mock"
     LLM_PROVIDER: str = "mock"
 
-    # Security
+    # Security & Auth (SRS §12-13, ASVS L2)
     JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
-    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    SESSION_EXPIRE_SECONDS: int = 28800  # 8 hours
+    RESET_TOKEN_EXPIRE_MINUTES: int = 15  # 15 minutes single-use
+    MAX_FAILED_LOGIN_ATTEMPTS: int = 5
+    LOCKOUT_DURATION_MINUTES: int = 15
+    RATE_LIMIT_PER_MINUTE: int = 30
     COOKIE_SECURE: bool = False
-    COOKIE_SAMESITE: str = "lax"
+    COOKIE_SAMESITE: Literal["lax", "strict", "none"] = "lax"
+    SESSION_COOKIE_NAME: str = "syntaxlens_session"
+    CSRF_COOKIE_NAME: str = "syntaxlens_csrf"
 
     # Research Protocol Defaults
     DEFAULT_RUBRIC_VERSION: str = "v1.0-jam-phd"

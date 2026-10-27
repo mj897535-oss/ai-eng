@@ -8,7 +8,7 @@ This matrix maps every Functional Requirement (FR-01..FR-20), Non-Functional Req
 
 | ID | Requirement Summary | Planned Phase | Planned Tests | Status |
 |---|---|---|---|---|
-| **FR-01** | **Authentication & RBAC**: Secure sign-in; participants access only own data; role-based researcher and reviewer permissions. | **Phase 3** (Auth, RBAC, Audit) | `tests/api/test_auth.py`, `tests/api/test_rbac.py` | Planned (Models in P1) |
+| **FR-01** | **Authentication & RBAC**: Secure sign-in; participants access only own data; role-based researcher and reviewer permissions. | **Phase 3** (Auth, RBAC, Audit) | `tests/api/test_auth.py`, `tests/api/test_rbac_matrix.py` | Verified (Phase 3 Matrix) |
 | **FR-02** | **Participant Management**: Create, batch import, deactivate, view participants. Enforce unique pseudonymous IDs (e.g. `SL-2026-xxx`). | **Phase 4** (Participants & Onboarding) | `tests/api/test_participants.py`, `tests/unit/test_csv_import.py` | Planned (Models in P1) |
 | **FR-03** | **Consent Handling**: Present approved consent before recording; record consent version, status, and timestamp. Append-only. | **Phase 4** (Participants & Onboarding) | `tests/api/test_consent.py`, `tests/db/test_immutability.py` | Immutability Proven; API Planned |
 | **FR-04** | **Audio Capture**: Record, listen back, re-record before submission; presigned S3 upload; upload failure handling. | **Phase 6** (Audio Capture & Upload) | `tests/api/test_audio.py`, `tests/e2e/test_audio_recording.spec.ts` | Planned |
@@ -26,7 +26,7 @@ This matrix maps every Functional Requirement (FR-01..FR-20), Non-Functional Req
 | **FR-16** | **Progress Dashboard**: Category trends, pre/post rates, metric explanations, unreviewed warnings. | **Phase 13** (Dashboards) | `tests/api/test_student_dashboard.py`, `tests/e2e/test_student_dashboard.spec.ts` | Planned |
 | **FR-17** | **Research Dashboard**: Enrolment, completion status, group allocation, missing data, adherence, aggregates. | **Phase 13** (Dashboards) | `tests/api/test_research_dashboard.py`, `tests/e2e/test_research_dashboard.spec.ts` | Planned |
 | **FR-18** | **Data Export**: De-identified CSV with data dictionary and provenance metadata. | **Phase 14** (Export & Data Dict) | `tests/api/test_export.py`, `tests/unit/test_csv_generation.py` | Planned |
-| **FR-19** | **Audit Trail**: Append-only log for login, consent, audio submission, review decisions, export, deletion. | **Phase 3** (Auth, RBAC, Audit) | `tests/db/test_immutability.py::test_audit_log_immutability` | Immutability Proven; Logging Planned |
+| **FR-19** | **Audit Trail**: Append-only log for login, consent, audio submission, review decisions, export, deletion. | **Phase 3** (Auth, RBAC, Audit) | `tests/db/test_audit_immutability.py`, `tests/api/test_auth.py`, `tests/api/test_rbac_matrix.py` | Verified (Triggers & Logging) |
 | **FR-20** | **Configuration**: Versioned and frozen prompts, rubrics, topic pool, and scoring rules per study period. | **Phase 5** (Versioned Config) | `tests/api/test_config.py`, `tests/unit/test_rubric_freezing.py` | Planned (Seed in P1) |
 
 ---
@@ -36,7 +36,7 @@ This matrix maps every Functional Requirement (FR-01..FR-20), Non-Functional Req
 | ID | Category & Requirement Summary | Planned Phase | Planned Tests | Status |
 |---|---|---|---|---|
 | **NFR-SEC-01** | **Transport & Header Security**: HTTPS, OWASP ASVS L2 security headers (CSP, HSTS, X-Frame-Options DENY, nosniff). | **Phase 15** (Security & Retention) | `tests/api/test_health.py::test_security_headers_present` | Verified (Phase 1 Baseline) |
-| **NFR-SEC-02** | **Credential Storage**: Argon2id password hashing, secure session management, httpOnly+SameSite cookies. | **Phase 3** (Auth, RBAC, Audit) | `tests/api/test_auth.py`, `tests/unit/test_argon2.py` | Planned (Passlib in P1) |
+| **NFR-SEC-02** | **Credential Storage**: Argon2id password hashing, secure session management, httpOnly+SameSite cookies. | **Phase 3** (Auth, RBAC, Audit) | `tests/api/test_auth.py`, `app/core/security.py`, `app/core/session.py` | Verified (Phase 3 Baseline) |
 | **NFR-SEC-03** | **Audio Storage Protection**: Private S3 bucket, no public URLs, short-lived (15 min) presigned URLs. | **Phase 6** (Audio Capture & Upload) | `tests/services/test_storage.py` | Planned |
 | **NFR-PRIV-01** | **PII & Research Isolation**: Dual-schema architecture (`identity` vs `research`). No PII transmitted to STT or LLM. | **Phase 15** (Security & Retention) | `tests/services/test_sanitizer.py`, `tests/db/test_schema_isolation.py` | Verified in Schema & DB Migrations |
 | **NFR-PRIV-02** | **Right to Withdraw**: Protocol-compliant consent withdrawal setting `is_withdrawn = true` and excluding from exports. | **Phase 4** (Participants & Onboarding) | `tests/api/test_withdrawal.py` | Planned |
@@ -54,7 +54,7 @@ This matrix maps every Functional Requirement (FR-01..FR-20), Non-Functional Req
 
 | ID | Acceptance Criterion (§14) | Planned Phase | Planned Verification Method | Status |
 |---|---|---|---|---|
-| **AC-01** | Participant signs in and accesses only their own records. | **Phase 3** | Integration test checking cross-user data access rejection. | Planned |
+| **AC-01** | Participant signs in and accesses only their own records. | **Phase 3** | Integration test checking cross-user data access rejection. | Verified (`test_rbac_matrix.py`) |
 | **AC-02** | Consented participant submits pre-test recording and tracks status. | **Phase 6** | E2E Playwright test from topic prompt to submission. | Planned |
 | **AC-03** | System stores original audio, faithful transcript, word count, versions. | **Phase 7 & 8** | DB verification test asserting row fields and immutability. | Planned |
 | **AC-04** | Each candidate error has category, evidence, correction, review status. | **Phase 8** | Unit and integration tests verifying schema adherence. | Verified in Unit Tests |
@@ -63,7 +63,7 @@ This matrix maps every Functional Requirement (FR-01..FR-20), Non-Functional Req
 | **AC-07** | Post-test links to same participant's pre-test under approved rubric. | **Phase 12** | Integration test asserting pre-post pairing and rubric match. | Planned |
 | **AC-08** | Dashboard calculates error rates and reductions via pure module. | **Phase 13** | Unit test verifying dashboard returns pure module outputs. | Verified in Metrics Module |
 | **AC-09** | CSV export includes data dictionary and is de-identified by default. | **Phase 14** | Test verifying CSV output contains zero names/emails and has data dictionary. | Planned |
-| **AC-10** | Access control, consent handling, audit logging, retention tested. | **Phase 15** | Comprehensive security and retention test suite. | Planned |
+| **AC-10** | Access control, consent handling, audit logging, retention tested. | **Phase 15** | Comprehensive security and retention test suite. | Partially Verified (Access & Audit in P3) |
 | **AC-11** | Pilot completed before 120 enrollment; WER and accuracy reviewed. | **Phase 16** | Pilot Kit benchmark evaluation execution. | Pure metrics ready |
 
 ---

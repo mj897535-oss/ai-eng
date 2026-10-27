@@ -8,6 +8,7 @@ ensuring model outputs are never overwritten or mutated.
 
 import uuid
 from enum import Enum
+from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     UUID,
@@ -24,6 +25,9 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
+
+if TYPE_CHECKING:
+    from app.models.research import Participant
 
 
 class AssessmentType(str, Enum):
@@ -95,6 +99,15 @@ class Assessment(Base, TimestampMixin):
         "ErrorAnnotation",
         back_populates="assessment",
         cascade="all, delete-orphan",
+    )
+    assignments: Mapped[list["ReviewerAssignment"]] = relationship(
+        "ReviewerAssignment",
+        back_populates="assessment",
+        cascade="all, delete-orphan",
+    )
+    participant: Mapped["Participant"] = relationship(
+        "Participant",
+        foreign_keys=[participant_id],
     )
 
 
@@ -171,4 +184,39 @@ class ReviewerDecision(Base, TimestampMixin):
     annotation: Mapped["ErrorAnnotation"] = relationship(
         "ErrorAnnotation",
         back_populates="reviewer_decisions",
+    )
+
+
+class ReviewerAssignment(Base, TimestampMixin):
+    """Assignment of an assessment to a specific reviewer (SRS FR-10, P3 row-level ownership)."""
+    __tablename__ = "reviewer_assignments"
+    __table_args__ = {"schema": "research"}
+
+    assignment_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    reviewer_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("identity.users.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    assessment_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("research.assessments.assessment_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    assigned_by: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("identity.users.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    status: Mapped[str] = mapped_column(String(20), default="active", nullable=False)
+
+    assessment: Mapped["Assessment"] = relationship(
+        "Assessment",
+        back_populates="assignments",
     )

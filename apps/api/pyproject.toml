@@ -29,7 +29,11 @@ ignore = [
     "RUF012",  # Allow SQLAlchemy __table_args__ dict
     "UP042",   # Keep (str, Enum) for SQLAlchemy Enum mapping
     "E501",    # Line length
+    "B008",    # FastAPI Depends() / Query() in argument defaults
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E402"]
 
 [tool.mypy]
 python_version = "3.12"

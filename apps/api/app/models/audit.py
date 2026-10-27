@@ -6,14 +6,20 @@ Triggers prevent updating or deleting any audit log record.
 """
 
 import uuid
+from datetime import datetime
 
-from sqlalchemy import UUID, String, Text
+from sqlalchemy import UUID, DateTime, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.models.base import Base, TimestampMixin
+from app.models.base import Base
 
 
-class AuditLog(Base, TimestampMixin):
+class AuditLog(Base):
+    """Immutable audit trail for all security, data access, and research events.
+    
+    Fields strictly map to SRS §13 / FR-19:
+    (actor_id, role, action, record_type, record_id, outcome, ip_hash, user_agent, timestamp)
+    """
     __tablename__ = "audit_logs"
     __table_args__ = {"schema": "research"}
 
@@ -27,8 +33,52 @@ class AuditLog(Base, TimestampMixin):
         nullable=True,
         index=True,
     )
-    action: Mapped[str] = mapped_column(String(100), nullable=False)
-    resource_type: Mapped[str] = mapped_column(String(50), nullable=False)
-    resource_id: Mapped[str] = mapped_column(String(100), nullable=False)
-    details: Mapped[str | None] = mapped_column(Text, nullable=True)
-    ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
+    role: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+        index=True,
+    )
+    action: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        index=True,
+    )
+    record_type: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        index=True,
+    )
+    record_id: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        index=True,
+    )
+    outcome: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="success",
+        index=True,
+    )
+    ip_hash: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+    )
+    user_agent: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+    details: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=datetime.utcnow,
+        nullable=False,
+        index=True,
+    )
+
+    # Backward compatibility alias for created_at
+    @property
+    def created_at(self) -> datetime:
+        return self.timestamp

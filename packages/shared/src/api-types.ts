@@ -26,6 +26,48 @@ export interface ErrorResponse {
   detail?: string | null;
 }
 
+export type UserRole = "participant" | "researcher_admin" | "reviewer";
+
+export interface UserResponse {
+  id: string;
+  email: string;
+  full_name: string;
+  role: UserRole;
+  is_active: boolean;
+  must_change_password: boolean;
+  participant_id?: string | null;
+  participant_code?: string | null;
+}
+
+export interface LoginResponse {
+  user: UserResponse;
+  csrf_token: string;
+  message: string;
+}
+
+export interface AuditLogItem {
+  log_id: string;
+  actor_id: string | null;
+  role: string | null;
+  action: string;
+  record_type: string;
+  record_id: string;
+  outcome: string;
+  ip_hash: string | null;
+  user_agent: string | null;
+  details: string | null;
+  timestamp: string;
+}
+
+export interface PaginatedAuditLogResponse {
+  items: AuditLogItem[];
+  total: number;
+  limit: number;
+  offset: number;
+  distinct_actions: string[];
+  distinct_roles: string[];
+}
+
 export type ErrorCategory =
   | "TNS"   // Tense and aspect
   | "SVA"   // Subject-verb agreement
@@ -52,14 +94,7 @@ export interface ComparativeMetricsResult {
   pre_rate_per_100: number;
   post_rate_per_100: number;
   absolute_reduction: number;
-  relative_reduction_pct: number | null;
-  relative_reduction_status: "defined" | "undefined_zero_baseline";
-  scientific_disclaimer: string;
+  relative_reduction: number | null;
+  relative_reduction_formatted: string;
+  category_breakdown: Record<string, { pre_count: number; post_count: number; pre_rate: number; post_rate: number }>;
 }
-
-export type UserRole = "student" | "researcher" | "reviewer" | "admin";
-export type StudyGroup = "intervention" | "control";
-export type ConsentStatus = "consented" | "withdrawn";
-export type AssessmentType = "pre" | "post";
-export type ReviewDecisionType = "accepted" | "rejected" | "edited" | "uncertain";
-export type AttemptType = "independent" | "hint_assisted" | "revealed";
