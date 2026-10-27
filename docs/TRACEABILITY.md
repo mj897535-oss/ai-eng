@@ -1,54 +1,80 @@
 # SyntaxLens Requirements Traceability Matrix (RTM)
 
-This document tracks the mapping between the Software Requirements Specification (`docs/SRS.md`), architectural components, implementation files, and automated test suites.
+This matrix maps every Functional Requirement (FR-01..FR-20), Non-Functional Requirement (SRS §12–13), Acceptance Criterion (SRS §14), and Signature Feature to its planned implementation phase, planned verification tests, and current status.
+
+---
 
 ## 1. Functional Requirements (FR-01 to FR-20)
 
-| ID | Title & SRS Summary | Backend / DB Implementation | Frontend Implementation | Automated Tests |
+| ID | Requirement Summary | Planned Phase | Planned Tests | Status |
 |---|---|---|---|---|
-| **FR-01** | **Authentication & RBAC**: Restrict participants to own data; researcher role isolation. | `app/api/auth.py`, `app/models/identity.py`, `app/core/security.py` | `src/app/(auth)/login/page.tsx`, `src/lib/auth.ts` | `tests/api/test_auth.py`, `tests/api/test_rbac.py` |
-| **FR-02** | **Participant Management**: Create, import, deactivate, enforce unique IDs. | `app/api/participants.py`, `app/models/research.py` | `src/app/researcher/participants/page.tsx` | `tests/api/test_participants.py` |
-| **FR-03** | **Consent Handling**: Display approved consent before recording; record version, status, timestamp. | `app/api/consent.py`, `app/models/consent.py` (Append-Only) | `src/app/(student)/consent/page.tsx` | `tests/api/test_consent.py`, `tests/db/test_immutability.py` |
-| **FR-04** | **Audio Capture**: Record, playback, re-record before submission; presigned S3 storage keys. | `app/api/audio.py`, `app/services/storage.py` | `src/components/audio/AudioRecorder.tsx` | `tests/api/test_audio.py` |
-| **FR-05** | **Assessment Task**: Configure standardized instructions, duration, topic pool, rubric version. | `app/models/assessment_task.py`, `app/api/tasks.py` | `src/app/(student)/assessment/page.tsx` | `tests/api/test_tasks.py` |
-| **FR-06** | **Transcription**: Faithful transcription; preserve wording; capture timestamps; STTProvider. | `app/services/stt/`, `app/models/assessment.py` | `src/components/assessment/TranscriptView.tsx` | `tests/services/test_stt.py` |
-| **FR-07** | **Error Analysis**: Detect candidate errors with span, correction, category, confidence, explanation. | `app/services/llm/`, `app/models/error_annotation.py` | `src/components/evidence/EvidenceLens.tsx` | `tests/services/test_error_analysis.py` |
-| **FR-08** | **Error Categories**: Tense/aspect, SVA, word order, auxiliary, articles, prepositions, pronouns, other. | `app/schemas/categories.py`, `app/models/error_annotation.py` | `src/components/metrics/CategoryPill.tsx` | `tests/unit/test_categories.py` |
-| **FR-09** | **Uncertainty Handling**: Flag acceptable variation, transcription error, or pending human review. | `app/models/error_annotation.py`, `app/schemas/review.py` | `src/components/reviewer/UncertaintyTag.tsx` | `tests/unit/test_uncertainty.py` |
-| **FR-10** | **Human Review**: Accept/reject/edit candidate without overwriting original AI output. | `app/models/reviewer_decision.py`, `app/api/reviews.py` | `src/app/researcher/review/page.tsx` (Reviewer Cockpit) | `tests/api/test_reviews.py`, `tests/db/test_immutability.py` |
-| **FR-11** | **Personalized Tutor**: Baseline priorities drive conversation; blinded pre/post tests. | `app/services/tutor/`, `app/api/tutor.py` | `src/app/(student)/tutor/page.tsx` | `tests/services/test_tutor.py`, `tests/api/test_blinding.py` |
-| **FR-12** | **Feedback Sequence**: L0 quote, L1 hint, L2 rule cue, L3 reveal; independent transfer check. | `app/services/tutor/ladder.py` | `src/components/tutor/HintLadder.tsx` | `tests/services/test_hint_ladder.py` |
-| **FR-13** | **Session History**: Track start/end, active duration, targeted skills, hint usage, outcomes. | `app/models/practice.py`, `app/api/practice.py` | `src/app/(student)/progress/page.tsx` | `tests/api/test_practice.py` |
-| **FR-14** | **Recurrence Tracking**: Track error recurrence without double counting single utterance references. | `app/research/metrics.py`, `app/services/recurrence.py` | `src/components/progress/RecurrenceChart.tsx` | `tests/research/test_metrics.py` |
-| **FR-15** | **Post-Test**: Equal condition assessment, alternate topic, rubric version parity. | `app/api/assessments.py`, `app/services/assessment.py` | `src/app/(student)/assessment/post/page.tsx` | `tests/api/test_post_test.py` |
-| **FR-16** | **Progress Dashboard**: Category trends, pre/post rates, metric explanations, unreviewed warnings. | `app/api/dashboard.py`, `app/research/metrics.py` | `src/app/(student)/dashboard/page.tsx` | `tests/api/test_student_dashboard.py` |
-| **FR-17** | **Research Dashboard**: Enrolment, adherence, completion, group filter, cohort comparison. | `app/api/research_dashboard.py` | `src/app/researcher/dashboard/page.tsx` | `tests/api/test_research_dashboard.py` |
-| **FR-18** | **Data Export**: De-identified CSV with data dictionary and provenance metadata. | `app/api/export.py`, `app/services/export.py` | `src/app/researcher/export/page.tsx` | `tests/api/test_export.py` |
-| **FR-19** | **Audit Trail**: Append-only log for login, consent, audio, reviewer edits, export, deletion. | `app/models/audit.py`, `app/core/audit.py` | `src/app/researcher/audit/page.tsx` | `tests/db/test_audit_immutability.py` |
-| **FR-20** | **Configuration**: Versioned and frozen prompts, rubrics, topic pool, and scoring rules. | `app/models/configuration.py`, `app/api/config.py` | `src/app/researcher/config/page.tsx` | `tests/api/test_config.py` |
+| **FR-01** | **Authentication & RBAC**: Secure sign-in; participants access only own data; role-based researcher and reviewer permissions. | **Phase 3** (Auth, RBAC, Audit) | `tests/api/test_auth.py`, `tests/api/test_rbac.py` | Planned (Models in P1) |
+| **FR-02** | **Participant Management**: Create, batch import, deactivate, view participants. Enforce unique pseudonymous IDs (e.g. `SL-2026-xxx`). | **Phase 4** (Participants & Onboarding) | `tests/api/test_participants.py`, `tests/unit/test_csv_import.py` | Planned (Models in P1) |
+| **FR-03** | **Consent Handling**: Present approved consent before recording; record consent version, status, and timestamp. Append-only. | **Phase 4** (Participants & Onboarding) | `tests/api/test_consent.py`, `tests/db/test_immutability.py` | Immutability Proven; API Planned |
+| **FR-04** | **Audio Capture**: Record, listen back, re-record before submission; presigned S3 upload; upload failure handling. | **Phase 6** (Audio Capture & Upload) | `tests/api/test_audio.py`, `tests/e2e/test_audio_recording.spec.ts` | Planned |
+| **FR-05** | **Assessment Task**: Standardized instructions, task duration (60s), prep time (30s), topic bank, rubric version. | **Phase 5** (Versioned Config) | `tests/api/test_tasks.py`, `tests/unit/test_task_bank.py` | Planned (Seed in P1) |
+| **FR-06** | **Transcription**: Faithful transcript preserving errors; retain timestamps; decoupled STTProvider. | **Phase 7** (Transcription Pipeline) | `tests/services/test_stt.py`, `tests/services/test_stt_mock.py` | Mock Adapter Proven; Pipeline Planned |
+| **FR-07** | **Error Analysis**: Candidate deviations with span, correction, category, confidence, and explanation. | **Phase 8** (Assessment Engine) | `tests/services/test_error_analysis.py`, `tests/services/test_llm_mock.py` | Mock Adapter Proven; Engine Planned |
+| **FR-08** | **Error Categories**: 8 categories (TNS, SVA, WO, AUX, ART, PREP, PRO, OTH). Pure metrics integration. | **Phase 8** (Assessment Engine) | `tests/research/test_metrics.py::test_all_eight_categories_present` | Verified (100% pure unit tests) |
+| **FR-09** | **Uncertainty Handling**: Flag items as acceptable variation, transcription error, or needing human review. | **Phase 8** (Assessment Engine) | `tests/unit/test_uncertainty_flags.py` | Planned |
+| **FR-10** | **Human Review**: Reviewer can accept, reject, edit, or recategorize. Model outputs never overwritten. | **Phase 9** (Review Workflow) | `tests/api/test_reviews.py`, `tests/db/test_immutability.py` | Immutability Proven; UI Planned |
+| **FR-11** | **Personalised Tutor**: Uses verified baseline priorities; strict server-side blinding during pre/post tests. | **Phase 10** (Tutor Engine) | `tests/services/test_tutor.py`, `tests/api/test_blinding.py` | Planned |
+| **FR-12** | **Feedback Sequence**: Hint ladder (L0 quote, L1 hint, L2 rule, L3 reveal); independent transfer check. | **Phase 10** (Tutor Engine) | `tests/services/test_hint_ladder.py`, `tests/services/test_llm_mock.py` | Mock Ladder Proven; API Planned |
+| **FR-13** | **Session History**: Track start/end, active practice duration, targeted skills, hint usage, outcomes. | **Phase 11** (Practice Logging) | `tests/api/test_practice_sessions.py` | Planned (Models in P1) |
+| **FR-14** | **Recurrence Tracking**: Track error categories across sessions without double counting repeated hints for one utterance. | **Phase 11** (Practice Logging) | `tests/research/test_recurrence.py`, `tests/unit/test_utterance_fingerprint.py` | Planned |
+| **FR-15** | **Post-Test**: Equal condition assessment, alternate topic, rubric version parity, linked to pre-test. | **Phase 12** (Post-Test & Comparative) | `tests/api/test_post_test.py`, `tests/integration/test_pre_post_linkage.py` | Planned |
+| **FR-16** | **Progress Dashboard**: Category trends, pre/post rates, metric explanations, unreviewed warnings. | **Phase 13** (Dashboards) | `tests/api/test_student_dashboard.py`, `tests/e2e/test_student_dashboard.spec.ts` | Planned |
+| **FR-17** | **Research Dashboard**: Enrolment, completion status, group allocation, missing data, adherence, aggregates. | **Phase 13** (Dashboards) | `tests/api/test_research_dashboard.py`, `tests/e2e/test_research_dashboard.spec.ts` | Planned |
+| **FR-18** | **Data Export**: De-identified CSV with data dictionary and provenance metadata. | **Phase 14** (Export & Data Dict) | `tests/api/test_export.py`, `tests/unit/test_csv_generation.py` | Planned |
+| **FR-19** | **Audit Trail**: Append-only log for login, consent, audio submission, review decisions, export, deletion. | **Phase 3** (Auth, RBAC, Audit) | `tests/db/test_immutability.py::test_audit_log_immutability` | Immutability Proven; Logging Planned |
+| **FR-20** | **Configuration**: Versioned and frozen prompts, rubrics, topic pool, and scoring rules per study period. | **Phase 5** (Versioned Config) | `tests/api/test_config.py`, `tests/unit/test_rubric_freezing.py` | Planned (Seed in P1) |
 
 ---
 
-## 2. Signature Features
+## 2. Non-Functional Requirements (SRS §12–13)
 
-| Feature | Description | Implementation Path | Test Suite |
-|---|---|---|---|
-| **A. Evidence Lens** | Transcript with interactive candidate error spans, audio timeline seek, candidate card (phrase, correction, category, confidence). | `src/components/evidence/EvidenceLens.tsx`, `app/api/assessments.py` | `tests/e2e/evidence_lens.spec.ts` |
-| **B. Syntax Fingerprint** | Radar/bar view of 8 category error rates per 100 words, pre vs post overlay, low-count warning, "not observed in this sample" hatching. | `src/components/metrics/SyntaxFingerprint.tsx`, `app/research/metrics.py` | `tests/research/test_metrics.py`, `tests/e2e/syntax_fingerprint.spec.ts` |
-| **C. Hint Ladder Tutor** | L0 quote phrase, L1 hint question, L2 rule cue, L3 reveal. Log attempt type (independent, hint-assisted, revealed) + transfer check. | `app/services/tutor/ladder.py`, `src/components/tutor/HintLadder.tsx` | `tests/services/test_hint_ladder.py`, `tests/e2e/tutor_ladder.spec.ts` |
-| **D. Reviewer Cockpit** | Audio + transcript + candidate queue, keyboard shortcuts (A, R, E, U, N), AI-vs-human diff, inter-reviewer agreement stats. | `src/app/researcher/review/page.tsx`, `app/api/reviews.py` | `tests/api/test_reviews.py`, `tests/e2e/reviewer_cockpit.spec.ts` |
-| **E. Reproducibility Panel** | "How was this calculated?" drawer displaying formula, counts, denominators, rubric, prompt, model versions. | `src/components/metrics/ReproducibilityDrawer.tsx` | `tests/research/test_metrics.py` |
-| **F. Pilot Kit** | Gold-set evaluation page: transcription WER, error classification precision/recall/agreement, time and cost per assessment. | `app/services/pilot/`, `src/app/researcher/pilot/page.tsx` | `tests/services/test_pilot.py` |
+| ID | Category & Requirement Summary | Planned Phase | Planned Tests | Status |
+|---|---|---|---|---|
+| **NFR-SEC-01** | **Transport & Header Security**: HTTPS, OWASP ASVS L2 security headers (CSP, HSTS, X-Frame-Options DENY, nosniff). | **Phase 15** (Security & Retention) | `tests/api/test_health.py::test_security_headers_present` | Verified (Phase 1 Baseline) |
+| **NFR-SEC-02** | **Credential Storage**: Argon2id password hashing, secure session management, httpOnly+SameSite cookies. | **Phase 3** (Auth, RBAC, Audit) | `tests/api/test_auth.py`, `tests/unit/test_argon2.py` | Planned (Passlib in P1) |
+| **NFR-SEC-03** | **Audio Storage Protection**: Private S3 bucket, no public URLs, short-lived (15 min) presigned URLs. | **Phase 6** (Audio Capture & Upload) | `tests/services/test_storage.py` | Planned |
+| **NFR-PRIV-01** | **PII & Research Isolation**: Dual-schema architecture (`identity` vs `research`). No PII transmitted to STT or LLM. | **Phase 15** (Security & Retention) | `tests/services/test_sanitizer.py`, `tests/db/test_schema_isolation.py` | Verified in Schema & DB Migrations |
+| **NFR-PRIV-02** | **Right to Withdraw**: Protocol-compliant consent withdrawal setting `is_withdrawn = true` and excluding from exports. | **Phase 4** (Participants & Onboarding) | `tests/api/test_withdrawal.py` | Planned |
+| **NFR-RES-01** | **Append-Only Research Records**: Database triggers block `UPDATE` and `DELETE` on research tables. | **Phase 1 / Phase 2** | `tests/db/test_immutability.py` (4 tests) | Verified (DB Triggers Tested) |
+| **NFR-RES-02** | **Pure Calculation Module**: Single source of truth for all metrics. UI never calculates formulas. | **Phase 1 / Phase 12** | `tests/research/test_metrics.py` (18 unit tests) | Verified (100% pure unit tests) |
+| **NFR-REL-01** | **Upload & Submission Idempotency**: Idempotency keys prevent duplicate assessments or sessions on retries. | **Phase 6** (Audio Capture & Upload) | `tests/api/test_idempotency.py` | Planned |
+| **NFR-REL-02** | **Zero-API Key Testability**: Complete test suite and local development run without external API keys. | **Phase 2** (Foundations & CI) | `tests/services/test_stt_mock.py`, `test_llm_mock.py` | Verified (Deterministic Mocks) |
+| **NFR-ACC-01** | **Accessibility (WCAG 2.2 AA)**: Keyboard navigable, skip links, visible focus, 360px+ responsive, dark/light mode. | **Phase 16** (QA & Pilot Kit) | `tests/e2e/accessibility.spec.ts` (axe-core) | Planned (Layout baseline in P1) |
+| **NFR-PERF-01** | **Transparent Pipeline Status**: Clear user-visible feedback for upload, transcription, and analysis states. | **Phase 6 / Phase 8** | `tests/e2e/test_status_polling.spec.ts` | Planned |
+| **NFR-SCAL-01** | **Cohort Scalability**: Support 120 enrolled participants with concurrent recording and tutoring. | **Phase 16** (QA & Pilot Kit) | `tests/load/test_concurrent_sessions.py` | Planned |
 
 ---
 
-## 3. Non-Functional & Acceptance Criteria
+## 3. Acceptance Criteria (§14 Definition of Done)
 
-| Area | Requirement | Enforcement Mechanism |
-|---|---|---|
-| **Append-Only DB** | AI outputs, transcripts, baselines, consents, audit logs cannot be updated or deleted. | PostgreSQL database triggers raising `RAISE EXCEPTION` on `UPDATE` or `DELETE`. Proved by `tests/db/test_immutability.py`. |
-| **Pure Metrics** | All error rates, reductions, and statistics calculated by one pure Python module. UI never implements formulas. | `backend/app/research/metrics.py` with 100% unit test coverage. |
-| **Server-Side Blinding**| No candidate feedback or error scores returned to student during active pre/post tests. | Response serializers check study phase and role before including error details. |
-| **Zero-API Key Execution** | System must run fully with zero external API keys. | Mock deterministic STT (`MockSTTProvider`) and LLM (`MockLLMProvider`) enabled by default or flag. |
-| **Security & Privacy** | ASVS L2 baseline: Argon2id, httpOnly/SameSite cookies, CSRF, rate-limiting, CSP, S3 presigned URLs, no PII to LLM. | FastApi middleware, separate `identity` / `research` Postgres schemas, presigned S3 URLs. |
-| **Accessibility & UX** | WCAG 2.2 AA compliant, 360px+ responsive, dark/light mode, keyboard navigability, B1 CEFR plain copy. | Tailwind CSS, Radix UI primitives, automated axe-core accessibility checks in Playwright. |
+| ID | Acceptance Criterion (§14) | Planned Phase | Planned Verification Method | Status |
+|---|---|---|---|---|
+| **AC-01** | Participant signs in and accesses only their own records. | **Phase 3** | Integration test checking cross-user data access rejection. | Planned |
+| **AC-02** | Consented participant submits pre-test recording and tracks status. | **Phase 6** | E2E Playwright test from topic prompt to submission. | Planned |
+| **AC-03** | System stores original audio, faithful transcript, word count, versions. | **Phase 7 & 8** | DB verification test asserting row fields and immutability. | Planned |
+| **AC-04** | Each candidate error has category, evidence, correction, review status. | **Phase 8** | Unit and integration tests verifying schema adherence. | Verified in Unit Tests |
+| **AC-05** | Researcher reviews, accepts, rejects, edits without erasing AI data. | **Phase 9** | Test verifying `reviewer_decisions` child rows and AI preservation. | Verified in DB Test |
+| **AC-06** | Tutor uses baseline priorities and logs sessions, hints, outcomes. | **Phase 10 & 11** | Service test verifying priority injection and event logging. | Planned |
+| **AC-07** | Post-test links to same participant's pre-test under approved rubric. | **Phase 12** | Integration test asserting pre-post pairing and rubric match. | Planned |
+| **AC-08** | Dashboard calculates error rates and reductions via pure module. | **Phase 13** | Unit test verifying dashboard returns pure module outputs. | Verified in Metrics Module |
+| **AC-09** | CSV export includes data dictionary and is de-identified by default. | **Phase 14** | Test verifying CSV output contains zero names/emails and has data dictionary. | Planned |
+| **AC-10** | Access control, consent handling, audit logging, retention tested. | **Phase 15** | Comprehensive security and retention test suite. | Planned |
+| **AC-11** | Pilot completed before 120 enrollment; WER and accuracy reviewed. | **Phase 16** | Pilot Kit benchmark evaluation execution. | Pure metrics ready |
+
+---
+
+## 4. Signature Features
+
+| ID | Feature Name | Description | Planned Phase | Planned Verification Tests | Status |
+|---|---|---|---|---|---|
+| **SIG-A** | **Evidence Lens** | Transcript with highlighted candidate errors; clicking a span seeks audio and displays candidate card. | **Phase 8 & 9** | `tests/e2e/test_evidence_lens.spec.ts` | Planned |
+| **SIG-B** | **Syntax Fingerprint** | Radar/bar view of 8 category rates per 100 words, pre vs post overlay, with "not observed in this sample" hatching. | **Phase 13** | `tests/research/test_metrics.py`, `tests/e2e/test_syntax_fingerprint.spec.ts` | Metrics Verified |
+| **SIG-C** | **Hint Ladder Tutor** | L0 quote, L1 hint, L2 rule cue, L3 reveal + transfer check; logs attempt type. | **Phase 10** | `tests/services/test_hint_ladder.py`, `tests/e2e/test_tutor.spec.ts` | Mock Logic Verified |
+| **SIG-D** | **Reviewer Cockpit** | Keyboard shortcuts (A, R, E, U, N), audio player, AI-vs-human diff, inter-reviewer agreement ($\kappa$). | **Phase 9** | `tests/api/test_reviews.py`, `tests/research/test_metrics.py` | Kappa Metric Verified |
+| **SIG-E** | **Reproducibility Panel** | "How was this calculated?" drawer displaying formula, counts, denominators, and versions. | **Phase 13** | `tests/e2e/test_reproducibility_panel.spec.ts` | Planned |
+| **SIG-F** | **Pilot Kit** | Gold-set evaluation page computing transcription WER and classification precision/recall/F1. | **Phase 16** | `tests/research/test_metrics.py`, `tests/services/test_pilot.py` | Metrics Verified |
