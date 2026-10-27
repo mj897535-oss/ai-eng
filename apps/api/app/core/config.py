@@ -38,6 +38,14 @@ class Settings(BaseSettings):
     S3_USE_SSL: bool = False
     S3_PRESIGNED_EXPIRATION_SECONDS: int = 900
 
+    # SMTP (Mailpit in dev)
+    SMTP_HOST: str = "localhost"
+    SMTP_PORT: int = 1025
+    SMTP_USER: str | None = None
+    SMTP_PASSWORD: str | None = None
+    EMAILS_FROM_EMAIL: str = "no-reply@syntaxlens.edu"
+    EMAILS_FROM_NAME: str = "SyntaxLens Research Platform"
+
     # Providers
     STT_PROVIDER: str = "mock"
     LLM_PROVIDER: str = "mock"

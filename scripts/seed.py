@@ -8,10 +8,10 @@ import sys
 import uuid
 from pathlib import Path
 
-# Add backend directory to path
-backend_dir = Path(__file__).resolve().parent.parent / "backend"
-if str(backend_dir) not in sys.path:
-    sys.path.insert(0, str(backend_dir))
+# Add apps/api directory to path
+api_dir = Path(__file__).resolve().parent.parent / "apps" / "api"
+if str(api_dir) not in sys.path:
+    sys.path.insert(0, str(api_dir))
 
 from passlib.context import CryptContext
 from sqlalchemy import text
