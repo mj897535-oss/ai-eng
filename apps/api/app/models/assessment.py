@@ -7,12 +7,14 @@ ensuring model outputs are never overwritten or mutated.
 """
 
 import uuid
+from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     UUID,
     Boolean,
+    DateTime,
     Float,
     ForeignKey,
     Integer,
@@ -90,8 +92,16 @@ class Assessment(Base, TimestampMixin):
         index=True,
     )
     audio_key: Mapped[str] = mapped_column(String(500), nullable=False)
-    transcript: Mapped[str] = mapped_column(Text, nullable=False)
-    word_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(50), default="queued_for_transcription", nullable=False, index=True)
+    audio_duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
+    audio_checksum: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    idempotency_key: Mapped[str | None] = mapped_column(String(100), unique=True, index=True, nullable=True)
+    is_official: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    retake_authorized_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    retake_authorized_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    retake_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    transcript: Mapped[str | None] = mapped_column(Text, nullable=True)
+    word_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     stt_version: Mapped[str] = mapped_column(String(50), nullable=False)
     rubric_version: Mapped[str] = mapped_column(String(50), nullable=False)
     model_version: Mapped[str] = mapped_column(String(50), nullable=False)

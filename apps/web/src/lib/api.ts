@@ -60,7 +60,8 @@ function getCsrfTokenFromCookie(): string | null {
 
 export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const baseUrl = process.env["NEXT_PUBLIC_API_URL"] || "http://localhost:8000/api/v1";
-  const url = `${baseUrl}${endpoint}`;
+  const normalizedEndpoint = endpoint.startsWith("/api/v1") ? endpoint.slice(7) : endpoint;
+  const url = `${baseUrl}${normalizedEndpoint}`;
 
   const headers = new Headers(options.headers || {});
   headers.set("Content-Type", "application/json");
