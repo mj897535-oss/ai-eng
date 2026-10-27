@@ -42,8 +42,17 @@ from app.models.base import Base
 from app.models.identity import User, UserRole
 from app.models.practice import PracticeSession
 from app.models.research import Participant, StudyGroup
+from app.services.config import config_service
 
 TEST_PASSWORD = "SyntaxLens@2026!Secure"
+CACHED_HASHED_PASSWORD: str | None = None
+
+
+def get_cached_test_password() -> str:
+    global CACHED_HASHED_PASSWORD
+    if CACHED_HASHED_PASSWORD is None:
+        CACHED_HASHED_PASSWORD = get_password_hash(TEST_PASSWORD)
+    return CACHED_HASHED_PASSWORD
 
 
 @pytest.fixture(scope="session")
@@ -89,6 +98,58 @@ async def test_engine() -> AsyncGenerator[Any, None]:
             END;
         """))
 
+        # Attach frozen immutability triggers on rubric_versions, prompt_versions, assessment_periods
+        await conn.execute(text("""
+            CREATE TRIGGER IF NOT EXISTS trg_rubric_frozen_update
+            BEFORE UPDATE ON rubric_versions
+            WHEN OLD.is_frozen = 1 OR OLD.status = 'frozen'
+            BEGIN
+                SELECT RAISE(FAIL, 'RESEARCH INTEGRITY VIOLATION: Frozen rubric versions are strictly immutable.');
+            END;
+        """))
+        await conn.execute(text("""
+            CREATE TRIGGER IF NOT EXISTS trg_rubric_frozen_delete
+            BEFORE DELETE ON rubric_versions
+            WHEN OLD.is_frozen = 1 OR OLD.status = 'frozen'
+            BEGIN
+                SELECT RAISE(FAIL, 'RESEARCH INTEGRITY VIOLATION: Frozen rubric versions cannot be deleted.');
+            END;
+        """))
+
+        await conn.execute(text("""
+            CREATE TRIGGER IF NOT EXISTS trg_prompt_frozen_update
+            BEFORE UPDATE ON prompt_versions
+            WHEN OLD.is_frozen = 1 OR OLD.status = 'frozen'
+            BEGIN
+                SELECT RAISE(FAIL, 'RESEARCH INTEGRITY VIOLATION: Frozen prompt versions are strictly immutable.');
+            END;
+        """))
+        await conn.execute(text("""
+            CREATE TRIGGER IF NOT EXISTS trg_prompt_frozen_delete
+            BEFORE DELETE ON prompt_versions
+            WHEN OLD.is_frozen = 1 OR OLD.status = 'frozen'
+            BEGIN
+                SELECT RAISE(FAIL, 'RESEARCH INTEGRITY VIOLATION: Frozen prompt versions cannot be deleted.');
+            END;
+        """))
+
+        await conn.execute(text("""
+            CREATE TRIGGER IF NOT EXISTS trg_period_frozen_update
+            BEFORE UPDATE ON assessment_periods
+            WHEN OLD.is_frozen = 1 OR OLD.status = 'frozen'
+            BEGIN
+                SELECT RAISE(FAIL, 'RESEARCH INTEGRITY VIOLATION: Frozen assessment periods are strictly immutable.');
+            END;
+        """))
+        await conn.execute(text("""
+            CREATE TRIGGER IF NOT EXISTS trg_period_frozen_delete
+            BEFORE DELETE ON assessment_periods
+            WHEN OLD.is_frozen = 1 OR OLD.status = 'frozen'
+            BEGIN
+                SELECT RAISE(FAIL, 'RESEARCH INTEGRITY VIOLATION: Frozen assessment periods cannot be deleted.');
+            END;
+        """))
+
     yield engine
     await engine.dispose()
 
@@ -118,7 +179,7 @@ async def client(test_session: AsyncSession) -> AsyncGenerator[AsyncClient, None
 @pytest.fixture
 async def seeded_data(test_session: AsyncSession) -> dict[str, Any]:
     """Seed test users, participants, tasks, and assessments for RBAC verification."""
-    hashed_pw = get_password_hash(TEST_PASSWORD)
+    hashed_pw = get_cached_test_password()
 
     # 1. Researcher Admin
     admin = User(
@@ -258,6 +319,8 @@ async def seeded_data(test_session: AsyncSession) -> dict[str, Any]:
         rev_1, rev_2, task, assessment_a, assessment_b, assignment,
         practice_session
     ])
+    await test_session.commit()
+    await config_service.seed_defaults(test_session)
     await test_session.commit()
 
     return {

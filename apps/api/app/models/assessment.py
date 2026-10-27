@@ -57,6 +57,8 @@ class AssessmentTask(Base, TimestampMixin):
     duration_seconds: Mapped[int] = mapped_column(Integer, default=60, nullable=False)
     prep_time_seconds: Mapped[int] = mapped_column(Integer, default=30, nullable=False)
     difficulty_level: Mapped[str] = mapped_column(String(50), default="standard", nullable=False)
+    equivalence_group: Mapped[str] = mapped_column(String(100), default="pair_daily_routine", nullable=False)
+    task_type: Mapped[str] = mapped_column(String(50), default="any", nullable=False)  # pre, post, any
     rubric_version: Mapped[str] = mapped_column(String(50), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
