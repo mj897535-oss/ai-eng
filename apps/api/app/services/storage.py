@@ -53,6 +53,16 @@ class StorageProvider(ABC):
         """Retrieve metadata (content_length, content_type, etag) for an object."""
         pass
 
+    @abstractmethod
+    def upload_file(self, key: str, data: bytes, content_type: str = "application/octet-stream") -> None:
+        """Directly upload server-side bytes to private object storage."""
+        pass
+
+    @abstractmethod
+    def get_file(self, key: str) -> bytes:
+        """Directly fetch bytes from private object storage."""
+        pass
+
 
 class S3StorageProvider(StorageProvider):
     """Real S3 / MinIO storage provider with Server-Side Encryption."""
@@ -134,6 +144,19 @@ class S3StorageProvider(StorageProvider):
             "server_side_encryption": resp.get("ServerSideEncryption"),
         }
 
+    def upload_file(self, key: str, data: bytes, content_type: str = "application/octet-stream") -> None:
+        self.s3_client.put_object(
+            Bucket=self.bucket,
+            Key=key,
+            Body=data,
+            ContentType=content_type,
+            ServerSideEncryption="AES256",
+        )
+
+    def get_file(self, key: str) -> bytes:
+        resp = self.s3_client.get_object(Bucket=self.bucket, Key=key)
+        return resp["Body"].read()
+
 
 class MockStorageProvider(StorageProvider):
     """Deterministic in-memory Mock storage provider for zero-API-key testing and offline builds."""
@@ -141,6 +164,22 @@ class MockStorageProvider(StorageProvider):
     def __init__(self) -> None:
         self.objects: dict[str, dict[str, Any]] = {}
         self.presigned_urls: dict[str, float] = {}
+        self.raw_data: dict[str, bytes] = {}
+
+    def upload_file(self, key: str, data: bytes, content_type: str = "application/octet-stream") -> None:
+        self.raw_data[key] = data
+        self.objects[key] = {
+            "content_length": len(data),
+            "content_type": content_type,
+            "etag": uuid.uuid4().hex,
+            "server_side_encryption": "AES256",
+        }
+
+    def get_file(self, key: str) -> bytes:
+        if key not in self.raw_data:
+            # Fallback mock audio bytes if object key not explicitly written
+            return b"MOCK_OGG_OPUS_AUDIO_BYTES_TESTING"
+        return self.raw_data[key]
 
     def generate_presigned_upload_url(
         self,

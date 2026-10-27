@@ -102,11 +102,22 @@ class Assessment(Base, TimestampMixin):
     retake_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     transcript: Mapped[str | None] = mapped_column(Text, nullable=True)
     word_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    words_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    raw_stt_response_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    stt_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    low_confidence_flag: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    retry_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     stt_version: Mapped[str] = mapped_column(String(50), nullable=False)
     rubric_version: Mapped[str] = mapped_column(String(50), nullable=False)
     model_version: Mapped[str] = mapped_column(String(50), nullable=False)
 
     # Relationships
+    revisions: Mapped[list["TranscriptRevision"]] = relationship(
+        "TranscriptRevision",
+        back_populates="assessment",
+        cascade="all, delete-orphan",
+    )
     error_annotations: Mapped[list["ErrorAnnotation"]] = relationship(
         "ErrorAnnotation",
         back_populates="assessment",
@@ -232,3 +243,83 @@ class ReviewerAssignment(Base, TimestampMixin):
         "Assessment",
         back_populates="assignments",
     )
+
+
+class TranscriptRevision(Base, TimestampMixin):
+    """Immutable human revision referencing original transcript (SRS FR-06). APPEND-ONLY."""
+    __tablename__ = "transcript_revisions"
+    __table_args__ = {"schema": "research"}
+
+    revision_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    assessment_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("research.assessments.assessment_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    revised_transcript: Mapped[str] = mapped_column(Text, nullable=False)
+    revised_word_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    reviewer_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("identity.users.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    diff_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    assessment: Mapped["Assessment"] = relationship(
+        "Assessment",
+        back_populates="revisions",
+    )
+
+
+class STTJobMetric(Base, TimestampMixin):
+    """Pilot Kit performance, latency, and cost telemetry per STT run."""
+    __tablename__ = "stt_job_metrics"
+    __table_args__ = {"schema": "research"}
+
+    metric_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    assessment_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("research.assessments.assessment_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    provider: Mapped[str] = mapped_column(String(50), nullable=False)
+    model_version: Mapped[str] = mapped_column(String(50), nullable=False)
+    audio_duration_seconds: Mapped[float] = mapped_column(Float, nullable=False)
+    latency_ms: Mapped[int] = mapped_column(Integer, nullable=False)
+    estimated_cost_usd: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    word_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    average_confidence: Mapped[float] = mapped_column(Float, nullable=False)
+    low_confidence_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    retry_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+
+# Enforcement of DB transcript immutability across all dialect environments
+from sqlalchemy import event
+from sqlalchemy.orm.attributes import get_history
+
+
+@event.listens_for(Assessment, "before_update")
+def enforce_assessment_transcript_immutability(mapper, connection, target: Assessment) -> None:
+    """Ensure that once an assessment transcript is written, it can NEVER be updated."""
+    hist = get_history(target, "transcript")
+    if hist.has_changes():
+        old_val = hist.deleted[0] if hist.deleted else None
+        new_val = hist.added[0] if hist.added else None
+        if old_val is not None and old_val != new_val:
+            raise ValueError(
+                "Assessments transcript is immutable once written and cannot be modified. "
+                "Record a transcript_revision instead."
+            )
+

@@ -6,6 +6,8 @@ from app.models.assessment import (
     ReviewDecisionType,
     ReviewerAssignment,
     ReviewerDecision,
+    STTJobMetric,
+    TranscriptRevision,
 )
 from app.models.audit import AuditLog
 from app.models.base import Base, TimestampMixin
@@ -44,8 +46,10 @@ __all__ = [
     "ReviewerAssignment",
     "ReviewerDecision",
     "RubricVersion",
+    "STTJobMetric",
     "StudyGroup",
     "TimestampMixin",
+    "TranscriptRevision",
     "User",
     "UserRole",
 ]

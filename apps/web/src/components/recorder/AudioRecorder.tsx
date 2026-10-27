@@ -48,6 +48,9 @@ export function AudioRecorder({
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [submittedAssessmentId, setSubmittedAssessmentId] = useState<string | null>(null);
+  const [sttStatus, setSttStatus] = useState<string>("queued");
+  const [sttTranscript, setSttTranscript] = useState<string | null>(null);
+  const [sttWordCount, setSttWordCount] = useState<number>(0);
 
   // Audio Context & MediaRecorder Refs
   const mediaStreamRef = useRef<MediaStream | null>(null);
@@ -58,6 +61,34 @@ export function AudioRecorder({
   const animFrameRef = useRef<number | null>(null);
   const prepTimerRef = useRef<NodeJS.Timeout | null>(null);
   const speakTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Poll transcription after successful submission
+  useEffect(() => {
+    if (!submittedAssessmentId) return;
+
+    let active = true;
+    const pollTranscription = async () => {
+      try {
+        setSttStatus("transcribing");
+        const res = await apiFetch<any>(`/assessments/${submittedAssessmentId}/transcribe`, {
+          method: "POST",
+        });
+        if (active && res) {
+          setSttStatus(res.status || "transcribed");
+          setSttTranscript(res.transcript || null);
+          setSttWordCount(res.word_count || 0);
+        }
+      } catch (err) {
+        console.warn("Transcription trigger/polling error:", err);
+      }
+    };
+
+    const timer = setTimeout(pollTranscription, 1200);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [submittedAssessmentId]);
 
   // Negotiate best supported codec
   const getSupportedMimeType = (): string => {
@@ -467,31 +498,84 @@ export function AudioRecorder({
           </div>
         )}
 
-        {/* STATE 7: QUEUED (Success) */}
+        {/* STATE 7: QUEUED / TRANSCRIBING / TRANSCRIBED */}
         {recorderState === "queued" && (
           <div className="py-8 space-y-4">
-            <div className="w-16 h-16 mx-auto rounded-full bg-emerald-100 dark:bg-emerald-950/60 flex items-center justify-center text-emerald-600 dark:text-emerald-400 text-3xl">
-              ✓
-            </div>
-            <div>
-              <h3 className="text-xl font-bold font-serif text-slate-900 dark:text-slate-50">
-                Recording Successfully Submitted!
-              </h3>
-              <p className="text-xs text-slate-600 dark:text-slate-400 mt-2 max-w-sm mx-auto">
-                Your audio has been securely encrypted and stored in private storage. It is now queued for transcription and syntactic review.
-              </p>
-            </div>
+            {sttStatus === "transcribing" ? (
+              <div className="space-y-4">
+                <div className="w-14 h-14 mx-auto rounded-full border-4 border-sky-500 border-t-transparent animate-spin" />
+                <div>
+                  <h3 className="text-xl font-bold font-serif text-slate-900 dark:text-slate-50">
+                    We received your recording. Processing...
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                    Acoustic speech-to-text pipeline is analyzing your spoken response with word-level precision.
+                  </p>
+                </div>
+                <div className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg max-w-sm mx-auto font-mono text-xs text-slate-600 dark:text-slate-400">
+                  Assessment ID: <span className="font-bold text-slate-900 dark:text-slate-200">{submittedAssessmentId?.slice(0, 8)}...</span>
+                  <div className="text-[11px] text-sky-600 mt-1">Status: transcribing</div>
+                </div>
+              </div>
+            ) : sttStatus === "transcribed" && sttTranscript ? (
+              <div className="space-y-4">
+                <div className="w-14 h-14 mx-auto rounded-full bg-emerald-100 dark:bg-emerald-950/60 flex items-center justify-center text-emerald-600 dark:text-emerald-400 text-2xl font-bold">
+                  ✓
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold font-serif text-slate-900 dark:text-slate-50">
+                    Recording & Transcription Complete!
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Your response has been transcribed verbatim with word-level timestamps.
+                  </p>
+                </div>
 
-            <div className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg max-w-sm mx-auto font-mono text-xs text-slate-600 dark:text-slate-400">
-              Assessment ID: <span className="font-bold text-slate-900 dark:text-slate-200">{submittedAssessmentId}</span>
-              <div className="text-[11px] text-emerald-600 mt-1">Status: Queued for Transcription</div>
-            </div>
+                <div className="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg max-w-md mx-auto text-left space-y-2">
+                  <div className="flex items-center justify-between text-xs font-mono text-slate-500">
+                    <span>FAITHFUL VERBATIM TRANSCRIPT</span>
+                    <Chip variant="neutral" size="sm">{sttWordCount} Words</Chip>
+                  </div>
+                  <p className="text-sm font-serif italic text-slate-800 dark:text-slate-200 leading-relaxed">
+                    &ldquo;{sttTranscript}&rdquo;
+                  </p>
+                  <p className="text-[10px] text-slate-400 border-t border-slate-200 dark:border-slate-800 pt-1.5">
+                    Research Rule: Grammar, repetitions, and hesitations preserved as spoken.
+                  </p>
+                </div>
 
-            <div className="pt-2">
-              <Button size="sm" variant="outline" onClick={() => window.location.href = "/dashboard"}>
-                Return to Dashboard
-              </Button>
-            </div>
+                <div className="pt-2">
+                  <Button size="sm" variant="outline" onClick={() => window.location.href = "/dashboard"}>
+                    Return to Dashboard
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="w-16 h-16 mx-auto rounded-full bg-emerald-100 dark:bg-emerald-950/60 flex items-center justify-center text-emerald-600 dark:text-emerald-400 text-3xl">
+                  ✓
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold font-serif text-slate-900 dark:text-slate-50">
+                    Recording Successfully Submitted!
+                  </h3>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-2 max-w-sm mx-auto">
+                    Your audio has been securely encrypted and stored in private storage. It is now queued for transcription and syntactic review.
+                  </p>
+                </div>
+
+                <div className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg max-w-sm mx-auto font-mono text-xs text-slate-600 dark:text-slate-400">
+                  Assessment ID: <span className="font-bold text-slate-900 dark:text-slate-200">{submittedAssessmentId}</span>
+                  <div className="text-[11px] text-emerald-600 mt-1">Status: Queued for Transcription</div>
+                </div>
+
+                <div className="pt-2">
+                  <Button size="sm" variant="outline" onClick={() => window.location.href = "/dashboard"}>
+                    Return to Dashboard
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </Card>
