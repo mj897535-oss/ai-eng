@@ -72,6 +72,7 @@ npm run dev
 * [Security Architecture & STRIDE Threat Model](docs/SECURITY.md) — Threat model, defense-in-depth, and encryption controls.
 * [Research Privacy & Data Flows](docs/PRIVACY.md) — Data classification, retention periods, and right-to-be-forgotten protocols.
 * [Operational Runbook](docs/RUNBOOK.md) — Disaster recovery, backup manifests, and circuit-breaker handling.
+* [Render Cloud Deployment Guide](docs/RENDER_DEPLOYMENT.md) — 1-Click Render Blueprint (`render.yaml`), PostgreSQL, Redis, and Web services.
 * [Deployment & Setup Guide](docs/DEPLOYMENT_GUIDE.md) — Docker Compose production deployment and database migrations.
 * [User Guides](docs/USER_GUIDES.md) — Participant, Reviewer Cockpit, and Researcher instructions.
 * [Pilot Kit Evaluation Report](docs/PILOT_REPORT.md) — Gold standard evaluation benchmarking report (Markdown & CSV).

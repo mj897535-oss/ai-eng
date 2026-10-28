@@ -30,6 +30,7 @@ from app.core.session import session_store
 from app.main import app
 
 # Ensure tests use fast in-memory stores without waiting on Redis timeouts
+settings.ENVIRONMENT = "testing"
 session_store._redis_failed = True
 rate_limiter._redis_failed = True
 from app.models.assessment import (

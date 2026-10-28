@@ -30,6 +30,8 @@ class SessionStore:
         self._user_sessions: dict[str, set[str]] = {}
 
     async def _get_redis(self) -> aioredis.Redis | None:
+        if settings.ENVIRONMENT in ("testing", "test"):
+            return None
         if self._redis is None and not self._redis_failed:
             try:
                 client = aioredis.from_url(

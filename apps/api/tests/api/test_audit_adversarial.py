@@ -20,16 +20,13 @@ import uuid
 import pytest
 from fastapi import status
 from httpx import AsyncClient
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.conftest import create_auth_headers_for
-from app.models.assessment import Assessment, AssessmentTask, AssessmentType, ErrorAnnotation
-from app.models.consent import Consent, ConsentStatus
+from app.models.assessment import Assessment, AssessmentTask, AssessmentType
 from app.models.identity import User, UserRole
 from app.models.research import Participant, StudyGroup
 from app.services.storage import storage_provider
-
+from tests.conftest import create_auth_headers_for
 
 # ---------------------------------------------------------------------------
 # Test 1: Cross-Participant Data Access
@@ -110,8 +107,10 @@ async def test_adversarial_append_only_mutation_aborted(
 ):
     """Direct SQL UPDATE on audit_logs raises database trigger exception."""
     from datetime import datetime
+
     from sqlalchemy import update
     from sqlalchemy.exc import DatabaseError, OperationalError
+
     from app.models.audit import AuditLog
 
     log_id = uuid.uuid4()

@@ -1,0 +1,87 @@
+# =============================================================================
+# SyntaxLens Infrastructure-as-Code Blueprint for Render Deployment
+# =============================================================================
+# Deploys:
+# 1. syntaxlens-db: Managed PostgreSQL 16 database with auto-created schemas
+# 2. syntaxlens-redis: In-memory cache and session management store
+# 3. syntaxlens-api: FastAPI backend with automated Alembic migrations and seeding
+# 4. syntaxlens-web: Next.js frontend with adaptive API routing
+# =============================================================================
+
+databases:
+  - name: syntaxlens-db
+    databaseName: syntaxlens
+    user: syntaxlens_user
+    plan: starter
+    region: oregon
+    postgresMajorVersion: "16"
+
+services:
+  # ---------------------------------------------------------------------------
+  # 1. Managed Redis
+  # ---------------------------------------------------------------------------
+  - type: redis
+    name: syntaxlens-redis
+    region: oregon
+    plan: starter
+    ipAllowList: []
+
+  # ---------------------------------------------------------------------------
+  # 2. Backend API Service (FastAPI)
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: syntaxlens-api
+    runtime: docker
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: ./apps/api
+    plan: starter
+    region: oregon
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: APP_SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: syntaxlens-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: syntaxlens-redis
+          property: connectionString
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: STT_PROVIDER
+        value: mock
+      - key: LLM_PROVIDER
+        value: mock
+      - key: DEFAULT_RUBRIC_VERSION
+        value: v1.0-jam-phd
+      - key: DEFAULT_PROMPT_VERSION
+        value: v1.0-tutor-ladder
+      - key: DEFAULT_ASSESSOR_PROMPT_VERSION
+        value: v1.0-assessor
+      - key: DEFAULT_MODEL_VERSION
+        value: mock-syntax-v1
+      - key: DEFAULT_STT_VERSION
+        value: mock-stt-v1
+
+  # ---------------------------------------------------------------------------
+  # 3. Frontend Web Service (Next.js)
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: syntaxlens-web
+    runtime: docker
+    dockerfilePath: ./apps/web/Dockerfile
+    dockerContext: ./apps/web
+    plan: starter
+    region: oregon
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_API_URL
+        value: https://syntaxlens-api.onrender.com/api/v1

@@ -1,7 +1,8 @@
 """Application Settings and Configuration."""
 
-from typing import Literal
+from typing import Any, Literal
 
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -130,6 +131,42 @@ You may withdraw from this research study at any time. When you click 'Withdraw 
 1. All future audio collection, assessments, and tutoring sessions are immediately stopped.
 2. Your account is flagged as withdrawn and quarantined from future study periods.
 3. Your data will not be included in subsequent research publications or aggregate models."""
+
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def assemble_cors_origins(cls, v: Any) -> list[str]:
+        if isinstance(v, str):
+            if v.strip() == "*":
+                return ["*"]
+            if v.startswith("[") and v.endswith("]"):
+                import json
+                try:
+                    return json.loads(v)
+                except Exception:
+                    pass
+            return [i.strip() for i in v.split(",") if i.strip()]
+        elif isinstance(v, list):
+            return v
+        return ["http://localhost:3000", "http://127.0.0.1:3000"]
+
+    @model_validator(mode="after")
+    def assemble_db_urls(self) -> "Settings":
+        db_url = str(self.DATABASE_URL)
+        if db_url.startswith("postgres://"):
+            db_url = db_url.replace("postgres://", "postgresql://", 1)
+
+        if db_url.startswith("postgresql://") and "+asyncpg" not in db_url:
+            self.DATABASE_URL = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        elif not db_url.startswith("postgresql+asyncpg://") and not db_url.startswith("sqlite"):
+            self.DATABASE_URL = db_url
+
+        if "localhost:5432" not in self.DATABASE_URL and ("localhost:5432" in self.DATABASE_URL_SYNC or self.DATABASE_URL_SYNC.startswith("postgres")):
+            sync_url = self.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql+psycopg2://", 1)
+            if sync_url.startswith("postgres://"):
+                sync_url = sync_url.replace("postgres://", "postgresql+psycopg2://", 1)
+            self.DATABASE_URL_SYNC = sync_url
+
+        return self
 
     model_config = SettingsConfigDict(
         env_file=".env",

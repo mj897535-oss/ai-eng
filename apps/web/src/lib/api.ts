@@ -59,9 +59,30 @@ function getCsrfTokenFromCookie(): string | null {
 }
 
 export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const baseUrl = process.env["NEXT_PUBLIC_API_URL"] || "http://localhost:8000/api/v1";
+  let baseUrl = process.env["NEXT_PUBLIC_API_URL"] || "http://localhost:8000/api/v1";
+
+  // Auto-detect production Render domain if NEXT_PUBLIC_API_URL was defaulted to localhost
+  if (typeof window !== "undefined") {
+    if (!process.env["NEXT_PUBLIC_API_URL"] || process.env["NEXT_PUBLIC_API_URL"].includes("localhost")) {
+      if (window.location.hostname.endsWith(".onrender.com")) {
+        const parts = window.location.hostname.split(".");
+        // e.g. syntaxlens-web -> syntaxlens-api
+        const prefix = parts[0] ?? "syntaxlens-web";
+        const apiHost = prefix.replace(/-web$/, "-api");
+        baseUrl = `https://${apiHost}.onrender.com/api/v1`;
+      }
+    }
+  }
+
+  // Normalize baseUrl so it always ends with /api/v1 and has no trailing slashes
+  baseUrl = baseUrl.replace(/\/+$/, "");
+  if (!baseUrl.endsWith("/api/v1")) {
+    baseUrl = `${baseUrl}/api/v1`;
+  }
+
   const normalizedEndpoint = endpoint.startsWith("/api/v1") ? endpoint.slice(7) : endpoint;
-  const url = `${baseUrl}${normalizedEndpoint}`;
+  const cleanEndpoint = normalizedEndpoint.startsWith("/") ? normalizedEndpoint : `/${normalizedEndpoint}`;
+  const url = `${baseUrl}${cleanEndpoint}`;
 
   const headers = new Headers(options.headers || {});
   headers.set("Content-Type", "application/json");

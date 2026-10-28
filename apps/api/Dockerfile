@@ -16,8 +16,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
+# Ensure start script has executable permissions and unix line endings
+RUN chmod +x /app/start.sh 2>/dev/null || true
+
 # Expose port
 EXPOSE 8000
 
-# Default command
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+ENV PORT=8000
+
+# Default command runs migrations and starts uvicorn on $PORT
+CMD ["/bin/sh", "/app/start.sh"]
