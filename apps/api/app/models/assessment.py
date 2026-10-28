@@ -41,7 +41,11 @@ class ReviewDecisionType(str, Enum):
     ACCEPTED = "accepted"
     REJECTED = "rejected"
     EDITED = "edited"
+    RECATEGORIZED = "recategorized"
     UNCERTAIN = "uncertain"
+    TRANSCRIPTION_RELATED = "transcription_related"
+    ACCEPTABLE_VARIATION = "acceptable_variation"
+    ADDED = "added"
 
 
 class AssessmentTask(Base, TimestampMixin):
@@ -114,6 +118,10 @@ class Assessment(Base, TimestampMixin):
     model_version: Mapped[str] = mapped_column(String(50), nullable=False)
     is_visible_to_participant: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     model_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    verified_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    review_status: Mapped[str] = mapped_column(String(50), default="unreviewed", nullable=False)
 
     # Relationships
     revisions: Mapped[list["TranscriptRevision"]] = relationship(
@@ -168,6 +176,8 @@ class ErrorAnnotation(Base, TimestampMixin):
     prompt_version: Mapped[str] = mapped_column(String(50), default="v1.0-assessor", nullable=False)
     model_version: Mapped[str] = mapped_column(String(50), nullable=False)
     raw_model_output_ref: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    origin: Mapped[str] = mapped_column(String(20), default="ai", nullable=False)
+    created_by_reviewer_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
 
     # Relationship
     assessment: Mapped["Assessment"] = relationship(
@@ -182,7 +192,7 @@ class ErrorAnnotation(Base, TimestampMixin):
 
 
 class ReviewerDecision(Base, TimestampMixin):
-    """Separate reviewer decision referencing candidate error (SRS FR-10)."""
+    """Separate reviewer decision referencing candidate error (SRS FR-10). APPEND-ONLY."""
     __tablename__ = "reviewer_decisions"
     __table_args__ = {"schema": "research"}
 
@@ -197,6 +207,12 @@ class ReviewerDecision(Base, TimestampMixin):
         nullable=False,
         index=True,
     )
+    assessment_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("research.assessments.assessment_id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
     reviewer_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("identity.users.id", ondelete="RESTRICT"),
@@ -206,8 +222,16 @@ class ReviewerDecision(Base, TimestampMixin):
         SQLEnum(ReviewDecisionType, name="review_decision_type", schema="research"),
         nullable=False,
     )
+    edited_span: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    edited_start_char: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    edited_end_char: Mapped[int | None] = mapped_column(Integer, nullable=True)
     edited_category: Mapped[str | None] = mapped_column(String(10), nullable=True)
     edited_correction: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    edited_explanation: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    before_state: Mapped[str | None] = mapped_column(Text, nullable=True)
+    after_state: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_reviewer_originated: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Relationship
@@ -244,6 +268,7 @@ class ReviewerAssignment(Base, TimestampMixin):
         ForeignKey("identity.users.id", ondelete="RESTRICT"),
         nullable=False,
     )
+    review_round: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="active", nullable=False)
 
     assessment: Mapped["Assessment"] = relationship(
@@ -339,4 +364,18 @@ def enforce_annotation_immutable_update(mapper, connection, target: ErrorAnnotat
 @event.listens_for(ErrorAnnotation, "before_delete")
 def enforce_annotation_immutable_delete(mapper, connection, target: ErrorAnnotation) -> None:
     raise ValueError("ErrorAnnotation records are append-only research artefacts and cannot be deleted.")
+
+
+@event.listens_for(ReviewerDecision, "before_update")
+def enforce_reviewer_decision_immutable_update(mapper, connection, target: ReviewerDecision) -> None:
+    raise ValueError(
+        "ReviewerDecision records are append-only research artefacts and cannot be updated. "
+        "Record a new decision row instead."
+    )
+
+
+@event.listens_for(ReviewerDecision, "before_delete")
+def enforce_reviewer_decision_immutable_delete(mapper, connection, target: ReviewerDecision) -> None:
+    raise ValueError("ReviewerDecision records are append-only research artefacts and cannot be deleted.")
+
 

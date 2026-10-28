@@ -79,6 +79,10 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str | None = None
     LLM_MODEL: str = "gemini-1.5-pro"
 
+    # Phase P9 Reviewer Cockpit Configuration
+    DOUBLE_REVIEW_MODE: bool = False
+    REQUIRE_ALL_RESOLVED_FOR_VERIFIED: bool = True
+
     # Phase P4 Protocol & Onboarding Configuration
     COLLECT_NAME: bool = False
     AGE_COLLECTION_MODE: Literal["exact", "band"] = "band"
