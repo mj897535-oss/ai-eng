@@ -19,6 +19,7 @@ from sqlalchemy import text
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.v1.analysis import router as analysis_router
+from app.api.v1.export import router as export_router
 from app.api.v1.audio import router as audio_router
 from app.api.v1.audit_logs import router as audit_logs_router
 from app.api.v1.auth import router as auth_router
@@ -138,6 +139,7 @@ app.include_router(analysis_router, prefix=settings.API_PREFIX)
 app.include_router(reviews_router, prefix=settings.API_PREFIX)
 app.include_router(tutor_router, prefix=settings.API_PREFIX)
 app.include_router(dashboard_router, prefix=settings.API_PREFIX)
+app.include_router(export_router, prefix=settings.API_PREFIX)
 
 
 # Health & Readiness Probes
