@@ -28,6 +28,7 @@ from app.api.v1.onboarding import router as onboarding_router
 from app.api.v1.participants import router as participants_router
 from app.api.v1.resources import router as resources_router
 from app.api.v1.reviews import router as reviews_router
+from app.api.v1.tutor import router as tutor_router
 from app.api.v1.users import router as users_router
 from app.core.config import settings
 from app.core.database import async_engine
@@ -134,6 +135,7 @@ app.include_router(config_router, prefix=settings.API_PREFIX)
 app.include_router(audio_router, prefix=settings.API_PREFIX)
 app.include_router(analysis_router, prefix=settings.API_PREFIX)
 app.include_router(reviews_router, prefix=settings.API_PREFIX)
+app.include_router(tutor_router, prefix=settings.API_PREFIX)
 
 
 # Health & Readiness Probes

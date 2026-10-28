@@ -83,6 +83,11 @@ class Settings(BaseSettings):
     DOUBLE_REVIEW_MODE: bool = False
     REQUIRE_ALL_RESOLVED_FOR_VERIFIED: bool = True
 
+    # Phase P10 AI Tutor & Hint Ladder Configuration
+    REQUIRE_VERIFIED_PRETEST_FOR_TUTORING: bool = True
+    DEFAULT_TUTOR_PROMPT_VERSION: str = "v1.0-tutor-ladder"
+    TUTOR_MAX_HINT_LEVEL: int = 3
+
     # Phase P4 Protocol & Onboarding Configuration
     COLLECT_NAME: bool = False
     AGE_COLLECTION_MODE: Literal["exact", "band"] = "band"

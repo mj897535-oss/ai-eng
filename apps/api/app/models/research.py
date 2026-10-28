@@ -76,4 +76,5 @@ class Participant(Base, TimestampMixin):
     consented_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     onboarding_completed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     onboarding_step: Mapped[str] = mapped_column(String(50), default="consent", nullable=False)
+    learner_interests: Mapped[str | None] = mapped_column(String(500), nullable=True)
 

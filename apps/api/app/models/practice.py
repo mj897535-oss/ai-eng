@@ -59,6 +59,9 @@ class PracticeSession(Base, TimestampMixin):
     active_duration_seconds: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     tutor_prompt_version: Mapped[str] = mapped_column(String(50), nullable=False)
     status: Mapped[str] = mapped_column(String(50), default="active", nullable=False)
+    topic: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    target_categories_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    turns_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     # Relationships
     events: Mapped[list["PracticeEvent"]] = relationship(
@@ -95,6 +98,9 @@ class PracticeEvent(Base, TimestampMixin):
     is_correct: Mapped[bool] = mapped_column(Boolean, nullable=False)
     transfer_phrase: Mapped[str | None] = mapped_column(Text, nullable=True)
     transfer_correct: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    learner_input: Mapped[str | None] = mapped_column(Text, nullable=True)
+    tutor_reply: Mapped[str | None] = mapped_column(Text, nullable=True)
+    transfer_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Relationship
     session: Mapped["PracticeSession"] = relationship(

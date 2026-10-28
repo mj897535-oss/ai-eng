@@ -348,34 +348,82 @@ class MockLLMProvider(LLMProvider):
         target_category: str,
         learner_utterance: str,
         ladder_level: int,
-        prompt_version: str,
+        prompt_version: str = "v1.0-tutor-ladder",
+        learner_phrase_quoted: str | None = None,
+        context: dict[str, Any] | None = None,
     ) -> TutorResponse:
-        """Hint Ladder turn generation without altering official scores."""
+        """Hint Ladder turn generation without altering official scores (SRS §7, §8, FR-11, FR-12)."""
+        clean_text = learner_utterance.strip().lower()
+
+        # Safety & Off-topic check
+        off_topic_triggers = [
+            "ignore previous", "ignore instructions", "jailbreak", "make a bomb",
+            "tell me a joke", "python code", "who won the game", "what is the capital"
+        ]
+        if any(trig in clean_text for trig in off_topic_triggers):
+            return TutorResponse(
+                reply_text=(
+                    "I am here to help you practice your spoken English grammar and communication skills. "
+                    "Let's stay focused on our practice session. How would you express your last sentence?"
+                ),
+                target_category=target_category,
+                hint_level=ladder_level,
+                expects_attempt=True,
+                is_off_topic=True,
+                safety_refusal=True,
+                prompt_version=prompt_version,
+            )
+
+        quoted = learner_phrase_quoted or learner_utterance.strip()
+
         if ladder_level == 0:
             return TutorResponse(
-                tutor_utterance=f'Let\'s look at what you just said: "{learner_utterance}". How might you say that more accurately?',
-                ladder_level=0,
+                reply_text=f'Let\'s look at what you just said: "{quoted}". How might you phrase that more accurately?',
                 target_category=target_category,
+                learner_phrase_quoted=quoted,
+                hint_level=0,
+                expects_attempt=True,
+                prompt_version=prompt_version,
             )
         elif ladder_level == 1:
             return TutorResponse(
-                tutor_utterance="Notice the subject and the verb in your sentence. When the subject is third-person singular (he/she/it), what ending does the verb usually take in the present tense?",
-                ladder_level=1,
+                reply_text=(
+                    f'Notice the subject and the verb in: "{quoted}". '
+                    "When the subject is third-person singular (he/she/it), what ending does the verb usually take in the present tense?"
+                ),
                 target_category=target_category,
+                learner_phrase_quoted=quoted,
+                hint_level=1,
+                expects_attempt=True,
                 hint_question="What ending is added to simple present verbs with he/she/it?",
+                prompt_version=prompt_version,
             )
         elif ladder_level == 2:
             return TutorResponse(
-                tutor_utterance="Rule cue: In English subject-verb agreement, third-person singular subjects (he, she, it) require the verb to end with '-s' or '-es' (e.g., 'he goes'). Try saying the sentence again with this rule.",
-                ladder_level=2,
+                reply_text=(
+                    "Rule cue: In English subject-verb agreement, third-person singular subjects (he, she, it) "
+                    "in the simple present require the verb to take an '-s' or '-es' suffix (e.g., 'he goes'). "
+                    "Try saying the phrase again using this rule."
+                ),
                 target_category=target_category,
-                rule_cue="Add -s or -es to the verb base.",
+                learner_phrase_quoted=quoted,
+                hint_level=2,
+                expects_attempt=True,
+                rule_cue="Add -s or -es to third-person singular present verbs.",
+                prompt_version=prompt_version,
             )
         else:
             return TutorResponse(
-                tutor_utterance='The natural form is: "He goes to college every day." Now, let\'s test your transfer: can you tell me what your friend does every morning?',
-                ladder_level=3,
+                reply_text=(
+                    'The standard form is: "He goes to college every day." '
+                    "Now, let's try a brand-new sentence to check your transfer: "
+                    "What does your friend do every morning?"
+                ),
                 target_category=target_category,
+                learner_phrase_quoted=quoted,
+                hint_level=3,
+                expects_attempt=True,
                 revealed_answer="He goes to college every day.",
                 transfer_prompt="What does your friend do every morning?",
+                prompt_version=prompt_version,
             )

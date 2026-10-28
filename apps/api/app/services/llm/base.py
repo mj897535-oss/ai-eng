@@ -76,14 +76,36 @@ class AssessorOutput(BaseModel):
 
 
 class TutorResponse(BaseModel):
-    """Tutor Hint Ladder turn response."""
-    tutor_utterance: str
-    ladder_level: int
-    target_category: str
+    """Tutor Hint Ladder turn response (SRS §7, §8, FR-11, FR-12, Signature Feature C)."""
+    reply_text: str = Field(..., description="Conversational tutor response text")
+    target_category: str = Field(..., description="Target syntactic error category, e.g. SVA, TNS")
+    learner_phrase_quoted: str | None = Field(None, description="Verbatim quote of learner's erroneous phrase")
+    hint_level: int = Field(default=0, ge=0, le=3, description="Hint Ladder level 0 to 3")
+    expects_attempt: bool = Field(default=True, description="Whether tutor expects a learner attempt next")
+    transfer_prompt: str | None = Field(None, description="Prompt for a brand-new sentence on L3 transfer check")
+    is_off_topic: bool = Field(default=False, description="Whether learner input was off-topic or safety violation")
+    safety_refusal: bool = Field(default=False, description="Whether safety guardrails triggered polite refusal")
+    prompt_version: str = Field(default="v1.0-tutor-ladder", description="Frozen prompt version ID")
+
+    # Legacy fields
     hint_question: str | None = None
     rule_cue: str | None = None
     revealed_answer: str | None = None
-    transfer_prompt: str | None = None
+
+    def __init__(self, **data: Any):
+        if "tutor_utterance" in data and "reply_text" not in data:
+            data["reply_text"] = data.pop("tutor_utterance")
+        if "ladder_level" in data and "hint_level" not in data:
+            data["hint_level"] = data.pop("ladder_level")
+        super().__init__(**data)
+
+    @property
+    def tutor_utterance(self) -> str:
+        return self.reply_text
+
+    @property
+    def ladder_level(self) -> int:
+        return self.hint_level
 
 
 class LLMProvider(ABC):
@@ -107,7 +129,9 @@ class LLMProvider(ABC):
         target_category: str,
         learner_utterance: str,
         ladder_level: int,
-        prompt_version: str,
+        prompt_version: str = "v1.0-tutor-ladder",
+        learner_phrase_quoted: str | None = None,
+        context: dict[str, Any] | None = None,
     ) -> TutorResponse:
         """Generate Hint Ladder tutor step without altering official assessment scores."""
         pass
