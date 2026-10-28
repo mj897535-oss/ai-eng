@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
 from enum import Enum
+from typing import Any
 
 
 class ErrorCategory(str, Enum):
@@ -741,7 +742,7 @@ def calculate_independent_correction_rate(
 
     # Group unique episodes by category
     category_episodes: dict[str, dict[str, int]] = {}
-    for fp, ep in episodes.items():
+    for _fp, ep in episodes.items():
         cat = ep["category"]
         if cat not in category_episodes:
             category_episodes[cat] = {
@@ -817,7 +818,7 @@ def calculate_adherence_statistics(
         weeks_count = max(1.0, _round_metric(days / 7.0, 1))
 
     expected_total_minutes = weeks_count * expected_sessions_per_week * expected_minutes_per_session
-    expected_total_sessions = int(weeks_count * expected_sessions_per_week)
+    int(weeks_count * expected_sessions_per_week)
 
     adherence_pct = (
         _round_metric((total_active_minutes / expected_total_minutes * 100.0), 1)

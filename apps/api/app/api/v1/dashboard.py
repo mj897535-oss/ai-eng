@@ -10,31 +10,26 @@ Implements:
 
 from __future__ import annotations
 
-import json
 import uuid
-from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.deps import get_current_user, require_roles
+from app.core.deps import require_roles
 from app.models.assessment import (
     Assessment,
     AssessmentType,
     ErrorAnnotation,
-    STTJobMetric,
 )
 from app.models.consent import Consent, ConsentStatus
 from app.models.identity import User, UserRole
-from app.models.practice import PracticeEvent, PracticeSession, UtterancePattern
+from app.models.practice import PracticeSession
 from app.models.research import Participant, StudyGroup
 from app.research.metrics import (
     STANDARD_CAUTION_TEXT,
-    compute_cohort_distribution,
     compute_group_comparative_aggregates,
 )
 from app.services.review import review_service
@@ -82,7 +77,7 @@ async def get_participant_home_dashboard(
         .where(
             Assessment.participant_id == part_id,
             Assessment.assessment_type == AssessmentType.PRE,
-            Assessment.is_official == True,
+            Assessment.is_official,
         )
         .order_by(Assessment.created_at.desc())
     )
@@ -94,7 +89,7 @@ async def get_participant_home_dashboard(
         .where(
             Assessment.participant_id == part_id,
             Assessment.assessment_type == AssessmentType.POST,
-            Assessment.is_official == True,
+            Assessment.is_official,
         )
         .order_by(Assessment.created_at.desc())
     )
@@ -218,7 +213,7 @@ async def get_participant_progress_screen(
         .where(
             Assessment.participant_id == part_id,
             Assessment.assessment_type == AssessmentType.PRE,
-            Assessment.is_official == True,
+            Assessment.is_official,
         )
         .order_by(Assessment.created_at.desc())
     )
@@ -229,7 +224,7 @@ async def get_participant_progress_screen(
         .where(
             Assessment.participant_id == part_id,
             Assessment.assessment_type == AssessmentType.POST,
-            Assessment.is_official == True,
+            Assessment.is_official,
         )
         .order_by(Assessment.created_at.desc())
     )
@@ -319,7 +314,7 @@ async def get_researcher_cohort_dashboard(
 ) -> dict[str, Any]:
     """Retrieve comprehensive Researcher Cohort Overview, aggregate pre/post distributions, and capacity panel."""
     # 1. Cohort Enrolment Funnel
-    parts_stmt = select(Participant).where(Participant.is_active == True)
+    parts_stmt = select(Participant).where(Participant.is_active)
     participants = (await db.execute(parts_stmt)).scalars().all()
     total_enrolled = len(participants)
 
@@ -328,7 +323,7 @@ async def get_researcher_cohort_dashboard(
     consented_count = (await db.execute(cons_stmt)).scalar() or 0
 
     # Assessments
-    ass_stmt = select(Assessment).where(Assessment.is_official == True)
+    ass_stmt = select(Assessment).where(Assessment.is_official)
     assessments = (await db.execute(ass_stmt)).scalars().all()
 
     pre_completed_ids = {a.participant_id for a in assessments if a.assessment_type == AssessmentType.PRE and a.status == "completed"}
@@ -456,11 +451,11 @@ async def list_cohort_participants(
     db: AsyncSession = Depends(get_db),
 ) -> list[dict[str, Any]]:
     """Retrieve cohort participant table with study status, practice minutes, and verification state."""
-    stmt = select(Participant).where(Participant.is_active == True).order_by(Participant.research_code.asc())
+    stmt = select(Participant).where(Participant.is_active).order_by(Participant.research_code.asc())
     participants = (await db.execute(stmt)).scalars().all()
 
     # Preload assessments and practice sessions
-    ass_stmt = select(Assessment).where(Assessment.is_official == True)
+    ass_stmt = select(Assessment).where(Assessment.is_official)
     assessments = (await db.execute(ass_stmt)).scalars().all()
 
     sess_stmt = select(PracticeSession)

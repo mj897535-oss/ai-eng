@@ -22,13 +22,12 @@ Tests:
 from __future__ import annotations
 
 import uuid
+
 import pytest
 import pytest_asyncio
-from httpx import ASGITransport, AsyncClient
+from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.conftest import create_auth_headers_for
-from app.main import app
 from app.models.assessment import (
     Assessment,
     AssessmentTask,
@@ -49,7 +48,7 @@ from app.research.metrics import (
     compute_comparative_report,
     filter_assessable_annotations,
 )
-
+from tests.conftest import create_auth_headers_for
 
 # --- 1. Table-Driven Unit Tests ---
 

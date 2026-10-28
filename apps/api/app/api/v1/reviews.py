@@ -16,11 +16,11 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.deps import get_current_user, require_roles
+from app.core.deps import require_roles
 from app.models.assessment import (
     Assessment,
     ErrorAnnotation,
@@ -28,7 +28,7 @@ from app.models.assessment import (
     ReviewerAssignment,
 )
 from app.models.identity import User, UserRole
-from app.models.research import Participant, StudyGroup
+from app.models.research import Participant
 from app.services.review import review_service
 
 router = APIRouter(prefix="/reviews", tags=["Reviewer Cockpit & Adjudication"])

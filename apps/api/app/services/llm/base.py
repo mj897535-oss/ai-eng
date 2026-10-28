@@ -8,8 +8,8 @@ Original AI outputs are immutable and append-only.
 
 from abc import ABC, abstractmethod
 from typing import Any, Literal
-from pydantic import BaseModel, Field
 
+from pydantic import BaseModel, Field
 
 SyntacticCategoryCode = Literal[
     "TNS",  # Tense & Aspect

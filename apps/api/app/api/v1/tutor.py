@@ -10,7 +10,6 @@ Implements:
 
 from __future__ import annotations
 
-import json
 import uuid
 from typing import Any
 
@@ -20,10 +19,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.deps import get_current_user, require_roles
+from app.core.deps import require_roles
 from app.models.identity import User, UserRole
 from app.models.practice import PracticeEvent, PracticeSession
-from app.models.research import Participant, StudyGroup
+from app.models.research import Participant
 from app.services.tutor import TutorGatingError, tutor_service
 
 router = APIRouter(prefix="/tutor", tags=["AI Tutor & Hint Ladder"])

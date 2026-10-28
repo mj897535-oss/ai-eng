@@ -13,14 +13,12 @@ from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, Field
-from sqlalchemy import select
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.deps import require_roles
 from app.models.config import (
-    AssessmentPeriod,
     LifecycleState,
     PromptRole,
     PromptVersion,
@@ -30,9 +28,7 @@ from app.models.identity import User, UserRole
 from app.services.config import (
     PeriodInput,
     PromptInput,
-    RubricCategoryDef,
     RubricInput,
-    TaskInput,
     config_service,
 )
 

@@ -30,6 +30,7 @@ ignore = [
     "UP042",   # Keep (str, Enum) for SQLAlchemy Enum mapping
     "E501",    # Line length
     "B008",    # FastAPI Depends() / Query() in argument defaults
+    "B904",    # Within an except clause, raise exceptions with raise ... from err
 ]
 
 [tool.ruff.lint.per-file-ignores]

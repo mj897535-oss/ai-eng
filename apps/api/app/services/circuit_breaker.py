@@ -9,8 +9,9 @@ Implements:
 from __future__ import annotations
 
 import time
+from collections.abc import Callable, Coroutine
 from enum import Enum
-from typing import Any, Callable, Coroutine
+from typing import Any
 
 
 class CircuitState(str, Enum):

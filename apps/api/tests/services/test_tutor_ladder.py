@@ -11,8 +11,8 @@ Tests:
 
 from __future__ import annotations
 
-import json
 import uuid
+
 import pytest
 import pytest_asyncio
 from sqlalchemy import func, select
@@ -23,7 +23,6 @@ from app.models.assessment import (
     AssessmentTask,
     AssessmentType,
     ErrorAnnotation,
-    ReviewDecisionType,
     ReviewerDecision,
 )
 from app.models.consent import Consent, ConsentStatus
@@ -274,7 +273,7 @@ async def test_appendix_a_scenario_end_to_end(test_session: AsyncSession, setup_
     assert t2["attempt_type"] == AttemptType.HINT_ASSISTED.value
 
     # 4. Learner answers transfer prompt: "She studies in the library."
-    t3 = await tutor_service.process_turn(test_session, sess_id, part_id, "She studies in the library.")
+    await tutor_service.process_turn(test_session, sess_id, part_id, "She studies in the library.")
 
     # 5. Conclude session
     summary = await tutor_service.end_session(test_session, sess_id, part_id)

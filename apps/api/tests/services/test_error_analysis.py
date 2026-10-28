@@ -11,8 +11,8 @@ Tests:
 7. Participant visibility gating and researcher release workflow.
 """
 
-import json
 import uuid
+
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
@@ -28,8 +28,8 @@ from app.models.assessment import (
 from app.models.identity import User, UserRole
 from app.models.research import Participant, StudyGroup
 from app.services.analysis import error_analysis_service
-from app.services.llm.base import AnnotationItem, AssessorOutput, LLMProvider
-from app.services.llm.mock import GOLDEN_FIXTURES, MockLLMProvider
+from app.services.llm.base import AnnotationItem
+from app.services.llm.mock import MockLLMProvider
 from app.services.validator import post_validator
 from tests.conftest import create_auth_headers_for
 

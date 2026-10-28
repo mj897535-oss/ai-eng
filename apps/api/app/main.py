@@ -19,13 +19,13 @@ from sqlalchemy import text
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.v1.analysis import router as analysis_router
-from app.api.v1.export import router as export_router
 from app.api.v1.audio import router as audio_router
 from app.api.v1.audit_logs import router as audit_logs_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.config import router as config_router
 from app.api.v1.consent import router as consent_router
 from app.api.v1.dashboard import router as dashboard_router
+from app.api.v1.export import router as export_router
 from app.api.v1.onboarding import router as onboarding_router
 from app.api.v1.participants import router as participants_router
 from app.api.v1.resources import router as resources_router

@@ -23,14 +23,14 @@ from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
-from fastapi.responses import Response, StreamingResponse
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.deps import get_current_user
-from app.models.assessment import Assessment, AssessmentType
+from app.models.assessment import Assessment
 from app.models.export import ExportSnapshot
 from app.models.identity import User, UserRole
 from app.models.research import Participant
@@ -42,7 +42,6 @@ from app.research.exporter import (
     compute_sha256,
     generate_csv_bytes,
     generate_data_dictionary_csv,
-    generate_data_dictionary_md,
     generate_xlsx_bytes,
 )
 from app.services.audit import audit_service
@@ -303,7 +302,7 @@ async def create_export(
 
     # For XLSX, return bytes directly; for CSV use streaming
     if body.format == "xlsx":
-        xlsx_bytes = generate_xlsx_bytes(rows, columns)
+        generate_xlsx_bytes(rows, columns)
         return {
             "snapshot_id": str(snapshot.snapshot_id),
             "row_count": len(rows),

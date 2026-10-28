@@ -12,13 +12,11 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.assessment import Assessment
-from app.models.consent import Consent, ConsentStatus
 from app.models.identity import User
 from app.models.research import Participant
 from app.services.audit import audit_service

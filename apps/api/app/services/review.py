@@ -13,12 +13,11 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime, timezone
-from typing import Any, Sequence
+from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
 from app.models.assessment import (
@@ -29,7 +28,6 @@ from app.models.assessment import (
     ReviewerDecision,
 )
 from app.models.identity import User, UserRole
-from app.models.research import Participant, StudyGroup
 from app.research.metrics import (
     AgreementMetrics,
     ErrorCategory,
@@ -339,7 +337,7 @@ class ReviewService:
         if total_anns > 0 and decided_count >= total_anns:
             assessment.review_status = "verified"
             assessment.is_verified = True
-            assessment.verified_at = datetime.now(timezone.utc)
+            assessment.verified_at = datetime.now(UTC)
             assessment.verified_by = reviewer.id
         elif decided_count > 0:
             assessment.review_status = "partially_reviewed"

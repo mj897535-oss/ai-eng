@@ -20,11 +20,13 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    event,
 )
 from sqlalchemy import (
     Enum as SQLEnum,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm.attributes import get_history
 
 from app.models.base import Base, TimestampMixin
 
@@ -338,10 +340,6 @@ class STTJobMetric(Base, TimestampMixin):
 
 
 # Enforcement of DB transcript immutability across all dialect environments
-from sqlalchemy import event
-from sqlalchemy.orm.attributes import get_history
-
-
 @event.listens_for(Assessment, "before_update")
 def enforce_assessment_transcript_immutability(mapper, connection, target: Assessment) -> None:
     """Ensure that once an assessment transcript is written, it can NEVER be updated."""

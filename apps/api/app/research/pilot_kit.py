@@ -14,8 +14,9 @@ from __future__ import annotations
 
 import csv
 import io
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any, Sequence
+from typing import Any
 
 from app.research.metrics import (
     ErrorCategory,
@@ -82,7 +83,7 @@ def run_pilot_kit_evaluation(
     cat_gold: dict[str, list[tuple[str, int, int]]] = {c.value: [] for c in ErrorCategory}
     cat_pred: dict[str, list[tuple[str, int, int]]] = {c.value: [] for c in ErrorCategory}
 
-    for idx, (g, p) in enumerate(zip(gold_records, predicted_records, strict=True)):
+    for _idx, (g, p) in enumerate(zip(gold_records, predicted_records, strict=True)):
         for ann in g.get("annotations", []):
             tup = (ann["category"], ann["start_char"], ann["end_char"])
             all_gold_tuples.append(tup)
@@ -136,7 +137,7 @@ def run_pilot_kit_evaluation(
 
     cost_per_part = round(
         sum(t.get("cost_usd", 0.012) for t in (telemetry_records or []))
-        / max(1, len(set(t.get("participant_id") for t in (telemetry_records or [])))),
+        / max(1, len({t.get("participant_id") for t in (telemetry_records or [])})),
         3,
     ) if telemetry_records else 0.024
 

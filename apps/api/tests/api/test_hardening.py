@@ -17,14 +17,13 @@ from __future__ import annotations
 import tempfile
 import uuid
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import status
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.conftest import create_auth_headers_for
 from app.models.assessment import Assessment, AssessmentTask, AssessmentType
 from app.models.identity import User, UserRole
 from app.models.research import Participant, StudyGroup
@@ -36,7 +35,6 @@ from app.services.privacy_gate import (
     verify_provider_compliance,
 )
 from app.services.retention import data_retention_service
-
 
 # ---------------------------------------------------------------------------
 # Security Headers & HSTS Tests

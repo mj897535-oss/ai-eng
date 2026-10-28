@@ -11,10 +11,9 @@ Tests enforce:
 """
 
 import hashlib
-import json
 import uuid
+
 import pytest
-from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,14 +23,12 @@ from app.models.assessment import (
     AssessmentTask,
     AssessmentType,
     STTJobMetric,
-    TranscriptRevision,
 )
 from app.models.identity import User, UserRole
 from app.models.research import Participant, StudyGroup
 from app.services.stt import (
     MockSTTProvider,
     count_words,
-    get_stt_provider,
     tokenize_words,
 )
 from app.services.stt.mock import (

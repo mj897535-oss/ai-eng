@@ -12,11 +12,11 @@ from __future__ import annotations
 
 import uuid
 from typing import Any
+
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.conftest import create_auth_headers_for
 from app.models.assessment import (
     Assessment,
     AssessmentTask,
@@ -25,12 +25,12 @@ from app.models.assessment import (
 )
 from app.models.consent import Consent, ConsentStatus
 from app.models.identity import User, UserRole
-from app.models.practice import PracticeEvent, PracticeSession, UtterancePattern
+from app.models.practice import PracticeSession, UtterancePattern
 from app.models.research import Participant, StudyGroup
 from app.research.metrics import (
-    compute_cohort_distribution,
     compute_group_comparative_aggregates,
 )
+from tests.conftest import create_auth_headers_for
 
 
 @pytest.mark.asyncio

@@ -11,14 +11,14 @@ Verifies:
 """
 
 import uuid
+
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.models.assessment import Assessment, AssessmentType
-from app.models.research import Participant
+from app.models.assessment import Assessment
 from tests.conftest import create_auth_headers_for
 
 

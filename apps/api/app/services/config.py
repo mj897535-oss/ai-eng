@@ -11,11 +11,11 @@ import difflib
 import hashlib
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
-from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -28,7 +28,6 @@ from app.models.config import (
     RubricVersion,
 )
 from app.services.audit import audit_service
-
 
 # --- DTOs ---
 
@@ -307,7 +306,7 @@ class ResearchConfigService:
         if rubric.is_frozen or rubric.status == LifecycleState.FROZEN:
             raise ValueError(f"Rubric version '{version_code}' is already frozen and immutable.")
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         rubric.status = LifecycleState.FROZEN
         rubric.is_frozen = True
         rubric.frozen_at = now
@@ -394,7 +393,7 @@ class ResearchConfigService:
         if prompt.is_frozen or prompt.status == LifecycleState.FROZEN:
             raise ValueError(f"Prompt version '{version_code}' is already frozen and immutable.")
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         prompt.status = LifecycleState.FROZEN
         prompt.is_frozen = True
         prompt.frozen_at = now
@@ -550,7 +549,7 @@ class ResearchConfigService:
 
     async def seed_defaults(self, db: AsyncSession) -> None:
         """Seed frozen v1.0 baseline rubric, prompt versions, and topic pairs."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # 1. Rubric Version v1.0-jam-phd
         rubric_stmt = select(RubricVersion).where(RubricVersion.version_code == settings.DEFAULT_RUBRIC_VERSION)

@@ -20,12 +20,10 @@ import csv
 import hashlib
 import hmac
 import io
-import json
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from app.research.metrics import ErrorCategory, calculate_error_rate
-
 
 # ---------------------------------------------------------------------------
 # Column Definition Schema — single source of truth
@@ -375,7 +373,7 @@ def compute_k_anonymity_warnings(
     warnings = []
     for combo, count in combo_counts.items():
         if count < k_threshold:
-            label = ", ".join(f"{qi}={val}" for qi, val in zip(quasi_identifiers, combo))
+            label = ", ".join(f"{qi}={val}" for qi, val in zip(quasi_identifiers, combo, strict=False))
             warnings.append(
                 f"k-anonymity warning: subgroup ({label}) has only {count} record(s) "
                 f"(threshold={k_threshold}). Consider suppressing or generalising before sharing."

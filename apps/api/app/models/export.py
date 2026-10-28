@@ -6,7 +6,6 @@ Re-downloads serve the frozen bytes — not a re-query of live data.
 
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING
 
 from sqlalchemy import UUID, DateTime, Integer, LargeBinary, String, Text
 from sqlalchemy.orm import Mapped, mapped_column

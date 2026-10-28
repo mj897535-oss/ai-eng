@@ -313,7 +313,7 @@ async def get_comparative_assessment_report(
             .where(
                 Assessment.participant_id == part_id,
                 Assessment.assessment_type == AssessmentType.PRE,
-                Assessment.is_official == True,
+                Assessment.is_official,
             )
             .order_by(Assessment.created_at.desc())
         )
@@ -331,7 +331,7 @@ async def get_comparative_assessment_report(
             .where(
                 Assessment.participant_id == part_id,
                 Assessment.assessment_type == AssessmentType.POST,
-                Assessment.is_official == True,
+                Assessment.is_official,
             )
             .order_by(Assessment.created_at.desc())
         )

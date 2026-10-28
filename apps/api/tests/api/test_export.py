@@ -19,14 +19,12 @@ from __future__ import annotations
 import csv
 import io
 import uuid
-from typing import Any
 
 import pytest
 from fastapi import status
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.conftest import create_auth_headers_for
 from app.models.assessment import Assessment, AssessmentTask, AssessmentType
 from app.models.audit import AuditLog
 from app.models.export import ExportSnapshot
@@ -41,7 +39,7 @@ from app.research.exporter import (
     generate_csv_bytes,
     generate_data_dictionary_csv,
 )
-
+from tests.conftest import create_auth_headers_for
 
 # ---------------------------------------------------------------------------
 # Fixtures

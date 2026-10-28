@@ -8,17 +8,15 @@ Draft configuration records can be updated until frozen.
 
 import json
 import uuid
-from datetime import datetime, timezone
 
 import pytest
-from sqlalchemy import delete, select, text, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.config import (
     AssessmentPeriod,
     LifecycleState,
-    PromptRole,
     PromptVersion,
     RubricVersion,
 )

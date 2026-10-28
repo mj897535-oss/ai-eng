@@ -12,7 +12,7 @@ Tests:
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+
 import pytest
 import pytest_asyncio
 from sqlalchemy import select
@@ -24,8 +24,6 @@ from app.models.assessment import (
     AssessmentType,
     ErrorAnnotation,
     ReviewDecisionType,
-    ReviewerAssignment,
-    ReviewerDecision,
 )
 from app.models.consent import Consent, ConsentStatus
 from app.models.identity import User, UserRole

@@ -9,9 +9,8 @@ Verifies:
 """
 
 import pytest
+from apps.api.tests.conftest import create_auth_headers_for
 from httpx import AsyncClient
-
-from apps.api.tests.conftest import TEST_PASSWORD, create_auth_headers_for
 
 
 @pytest.mark.asyncio

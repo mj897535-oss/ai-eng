@@ -8,20 +8,17 @@ NON-NEGOTIABLE RESEARCH INTEGRITY & SECURITY RULES:
 - Minimum duration (>= 3s) and maximum duration limits enforced; corrupt / empty files rejected.
 """
 
-import hashlib
-import time
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.logging import logger
 from app.models.assessment import Assessment, AssessmentTask, AssessmentType
-from app.models.config import RubricVersion
 from app.models.research import Participant
 from app.services.audit import audit_service
 from app.services.config import config_service
@@ -246,7 +243,7 @@ class AudioAssessmentService:
         if not assessment:
             raise ValueError(f"No completed official {assessment_type.value} assessment found to retake.")
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         assessment.retake_authorized_by = researcher_id
         assessment.retake_authorized_at = now
         assessment.retake_reason = reason

@@ -19,16 +19,13 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.models.assessment import Assessment, AssessmentType, ErrorAnnotation, ReviewDecisionType, ReviewerDecision
-from app.models.identity import User
+from app.models.assessment import Assessment, AssessmentType, ErrorAnnotation
 from app.models.practice import AttemptType, PracticeEvent, PracticeSession, UtterancePattern
-from app.models.research import Participant, StudyGroup
+from app.models.research import Participant
 from app.research.metrics import (
-    calculate_active_duration,
     calculate_adherence_statistics,
     calculate_independent_correction_rate,
     compute_utterance_fingerprint,
-    normalize_utterance_for_fingerprint,
 )
 from app.services.audit import audit_service
 from app.services.llm.base import TutorResponse
@@ -118,7 +115,7 @@ class TutorService:
 
         # 4. Target categories
         target_cats = pretest_summary["priority_categories"][:2] if pretest_summary else ["SVA"]
-        primary_cat = target_cats[0]
+        target_cats[0]
 
         # 5. Create PracticeSession
         now = datetime.now(UTC)

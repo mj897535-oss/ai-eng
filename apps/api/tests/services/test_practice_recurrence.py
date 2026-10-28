@@ -18,9 +18,9 @@ Tests:
 
 from __future__ import annotations
 
-import json
 import uuid
 from datetime import UTC, datetime, timedelta
+
 import pytest
 import pytest_asyncio
 from sqlalchemy import select
@@ -29,14 +29,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.assessment import Assessment, AssessmentTask, AssessmentType, ErrorAnnotation
 from app.models.consent import Consent, ConsentStatus
 from app.models.identity import User, UserRole
-from app.models.practice import AttemptType, PracticeEvent, PracticeSession, UtterancePattern
+from app.models.practice import PracticeEvent, PracticeSession
 from app.models.research import Participant, StudyGroup
 from app.research.metrics import (
     calculate_active_duration,
-    calculate_adherence_statistics,
     calculate_independent_correction_rate,
     compute_utterance_fingerprint,
-    normalize_utterance_for_fingerprint,
 )
 from app.services.tutor import tutor_service
 

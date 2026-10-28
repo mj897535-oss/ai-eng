@@ -9,10 +9,8 @@ SCIENTIFIC CORE & RESEARCH RULES:
 6. Annotations are strictly APPEND-ONLY research artefacts.
 """
 
-import json
 import logging
 import uuid
-from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
