@@ -5,12 +5,22 @@ echo "=========================================================="
 echo " Starting SyntaxLens Research Platform Backend (Render)"
 echo "=========================================================="
 
+# Check if DATABASE_URL is unset or localhost and postgres is unreachable
+if [ -z "$DATABASE_URL" ] || echo "$DATABASE_URL" | grep -q "localhost:5432"; then
+    echo "==> Checking database availability..."
+    if ! python -c "import socket; s = socket.socket(); s.settimeout(1); s.connect(('localhost', 5432)); s.close()" 2>/dev/null; then
+        echo "==> PostgreSQL not detected on localhost:5432; configuring local SQLite database for standalone mode..."
+        export DATABASE_URL="sqlite+aiosqlite:////app/syntaxlens.db"
+        export DATABASE_URL_SYNC="sqlite:////app/syntaxlens.db"
+    fi
+fi
+
 # Run database migrations
 echo "==> Running Alembic Database Migrations..."
-if alembic upgrade head; then
+if alembic upgrade head 2>/dev/null; then
     echo "==> Migrations applied successfully."
 else
-    echo "==> Alembic upgrade had a non-zero exit; attempting fallback table creation..."
+    echo "==> Alembic upgrade fallback; ensuring tables exist via SQLAlchemy models..."
     python -c "from app.core.database import Base, sync_engine; Base.metadata.create_all(bind=sync_engine)" || true
 fi
 
