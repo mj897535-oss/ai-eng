@@ -1,5 +1,4 @@
 #!/bin/sh
-set -e
 
 PORT="${PORT:-10000}"
 
@@ -27,7 +26,7 @@ PORT=8000 /bin/sh /app/apps/api/start.sh &
 BACKEND_PID=$!
 
 # 2. Wait briefly for backend to initialize
-sleep 3
+sleep 4
 
 # 3. Start Next.js frontend on 127.0.0.1:3000
 echo "==> Launching Next.js frontend on 127.0.0.1:3000..."
@@ -39,12 +38,8 @@ FRONTEND_PID=$!
 echo "==> Configuring Nginx reverse proxy on port $PORT..."
 envsubst '$PORT' < /app/nginx.conf.template > /etc/nginx/nginx.conf
 
-# Trap termination signals to stop child processes gracefully
-trap 'kill $BACKEND_PID $FRONTEND_PID; exit' SIGTERM SIGINT
+# Trap termination signals to stop child processes gracefully (POSIX signal names: TERM and INT)
+trap 'kill $BACKEND_PID $FRONTEND_PID 2>/dev/null; exit 0' TERM INT
 
-echo "==> Starting Nginx router..."
-nginx -g "daemon off;" &
-NGINX_PID=$!
-
-# Wait on Nginx process
-wait $NGINX_PID
+echo "==> Starting Nginx router on port $PORT..."
+nginx -g "daemon off;"

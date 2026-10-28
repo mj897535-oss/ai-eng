@@ -1,5 +1,4 @@
 #!/bin/sh
-set -e
 
 echo "=========================================================="
 echo " Starting SyntaxLens Research Platform Backend (Render)"
@@ -15,12 +14,16 @@ if [ -z "$DATABASE_URL" ] || echo "$DATABASE_URL" | grep -q "localhost:5432"; th
     fi
 fi
 
-# Run database migrations
-echo "==> Running Alembic Database Migrations..."
-if alembic upgrade head 2>/dev/null; then
-    echo "==> Migrations applied successfully."
+# Run database setup
+echo "==> Initializing Database..."
+if echo "$DATABASE_URL" | grep -q "postgresql"; then
+    echo "==> Running Alembic Database Migrations on PostgreSQL..."
+    alembic upgrade head || {
+        echo "==> Alembic upgrade fallback; ensuring tables exist via models..."
+        python -c "from app.core.database import Base, sync_engine; Base.metadata.create_all(bind=sync_engine)" || true
+    }
 else
-    echo "==> Alembic upgrade fallback; ensuring tables exist via SQLAlchemy models..."
+    echo "==> SQLite detected. Initializing tables via SQLAlchemy..."
     python -c "from app.core.database import Base, sync_engine; Base.metadata.create_all(bind=sync_engine)" || true
 fi
 

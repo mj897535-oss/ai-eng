@@ -4,8 +4,9 @@ Supports both async (FastAPI application) and sync (Alembic / background scripts
 """
 
 from collections.abc import AsyncGenerator
+from typing import Any
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -37,6 +38,19 @@ sync_engine = create_engine(
     echo=False,
     pool_pre_ping=True,
 )
+
+if "sqlite" in settings.DATABASE_URL:
+    import os
+
+    def _attach_sqlite_schemas(dbapi_conn: Any, _record: Any) -> None:
+        db_dir = "/app" if os.path.exists("/app") else "."
+        cursor = dbapi_conn.cursor()
+        cursor.execute(f"ATTACH DATABASE '{db_dir}/syntaxlens_identity.db' AS identity")
+        cursor.execute(f"ATTACH DATABASE '{db_dir}/syntaxlens_research.db' AS research")
+        cursor.close()
+
+    event.listen(sync_engine, "connect", _attach_sqlite_schemas)
+    event.listen(async_engine.sync_engine, "connect", _attach_sqlite_schemas)
 
 SyncSessionLocal = sessionmaker(
     bind=sync_engine,
