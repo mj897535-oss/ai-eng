@@ -39,6 +39,11 @@ class LearnerTurnRequest(BaseModel):
     utterance: str = Field(..., min_length=1, max_length=2000, description="Learner speech or text input")
 
 
+class InterruptionRequest(BaseModel):
+    interruption_type: str = Field(..., max_length=50, description="Type of technical interruption (e.g. disconnect, mic_failure)")
+    details: str | None = Field(None, max_length=500, description="Diagnostic details")
+
+
 class TutorTurnResponseSchema(BaseModel):
     reply_text: str
     target_category: str
@@ -206,3 +211,54 @@ async def get_session_history(
         }
         for e in events
     ]
+
+
+@router.post("/sessions/{session_id}/interruptions", response_model=dict[str, Any])
+async def log_session_interruption(
+    session_id: uuid.UUID,
+    payload: InterruptionRequest,
+    current_user: User = Depends(require_roles([UserRole.PARTICIPANT])),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Record technical interruptions (e.g. mic failure, disconnect) during a session."""
+    participant = await get_participant(current_user, db)
+
+    try:
+        return await tutor_service.log_interruption(
+            db=db,
+            session_id=session_id,
+            participant_id=participant.participant_id,
+            interruption_type=payload.interruption_type,
+            details=payload.details,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.get("/history", response_model=dict[str, Any])
+async def get_participant_practice_history(
+    current_user: User = Depends(require_roles([UserRole.PARTICIPANT, UserRole.RESEARCHER_ADMIN, UserRole.ADMIN])),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Retrieve full practice session history and independent correction rate metrics."""
+    participant = await get_participant(current_user, db)
+    return await tutor_service.get_participant_history(db, participant.participant_id)
+
+
+@router.get("/recurrence", response_model=list[dict[str, Any]])
+async def get_participant_recurrence_patterns(
+    current_user: User = Depends(require_roles([UserRole.PARTICIPANT, UserRole.RESEARCHER_ADMIN, UserRole.ADMIN])),
+    db: AsyncSession = Depends(get_db),
+) -> list[dict[str, Any]]:
+    """Retrieve participant longitudinal recurring utterance patterns."""
+    participant = await get_participant(current_user, db)
+    return await tutor_service.get_recurrence_patterns(db, participant.participant_id)
+
+
+@router.get("/adherence", response_model=dict[str, Any])
+async def get_intervention_adherence_statistics(
+    current_user: User = Depends(require_roles([UserRole.RESEARCHER_ADMIN, UserRole.ADMIN])),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Retrieve cohort intervention adherence statistics (SRS Section 10)."""
+    return await tutor_service.get_cohort_adherence(db)

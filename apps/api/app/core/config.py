@@ -88,6 +88,11 @@ class Settings(BaseSettings):
     DEFAULT_TUTOR_PROMPT_VERSION: str = "v1.0-tutor-ladder"
     TUTOR_MAX_HINT_LEVEL: int = 3
 
+    # Phase P11 Session History & Recurrence Configuration
+    PRACTICE_IDLE_TIMEOUT_SECONDS: int = 60
+    EXPECTED_SESSIONS_PER_WEEK: int = 3
+    EXPECTED_PRACTICE_MINUTES_PER_SESSION: int = 15
+
     # Phase P4 Protocol & Onboarding Configuration
     COLLECT_NAME: bool = False
     AGE_COLLECTION_MODE: Literal["exact", "band"] = "band"

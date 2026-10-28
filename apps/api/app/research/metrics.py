@@ -8,9 +8,11 @@ All calculations match SRS Section 7, Section 14, and approved Signature Feature
 
 from __future__ import annotations
 
+import hashlib
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
 from enum import Enum
 
@@ -331,3 +333,206 @@ def evaluate_error_classification(
         fp=fp,
         fn=fn,
     )
+
+
+# --- Phase P11: Recurrence, Active Timing & Adherence Pure Calculations (SRS FR-14) ---
+
+def normalize_utterance_for_fingerprint(text: str) -> str:
+    """Normalize learner utterance for canonical fingerprinting (FR-14).
+    
+    Rules:
+    - Lowercase
+    - Strip leading/trailing quotes and punctuation
+    - Normalize internal whitespace
+    - Punctuation-agnostic word token sequence
+    """
+    clean = text.lower().strip()
+    # Strip non-alphanumeric except spaces and apostrophes inside words
+    clean = re.sub(r"[^\w\s']", " ", clean)
+    words = clean.split()
+    return " ".join(words)
+
+
+def compute_utterance_fingerprint(text: str) -> str:
+    """Deterministic 32-character SHA-256 fingerprint of normalized utterance."""
+    norm = normalize_utterance_for_fingerprint(text)
+    return hashlib.sha256(norm.encode("utf-8")).hexdigest()[:32]
+
+
+def calculate_active_duration(
+    turn_timestamps: Sequence[datetime],
+    idle_threshold_seconds: int = 60,
+) -> dict[str, int]:
+    """Calculate active vs idle duration across a sequence of conversational turn timestamps.
+    
+    Documented Rule:
+    Intervals between turns exceeding idle_threshold_seconds (60s) pause the active clock.
+    Any interval dt <= threshold is credited to active_seconds.
+    Any interval dt > threshold credits threshold to active_seconds and (dt - threshold) to idle_seconds.
+    """
+    if len(turn_timestamps) <= 1:
+        return {
+            "active_duration_seconds": 0,
+            "idle_duration_seconds": 0,
+            "total_wall_clock_seconds": 0,
+            "idle_gaps_count": 0,
+        }
+
+    active_sec = 0
+    idle_sec = 0
+    idle_gaps = 0
+
+    sorted_ts = sorted(turn_timestamps)
+    for i in range(1, len(sorted_ts)):
+        dt = int((sorted_ts[i] - sorted_ts[i - 1]).total_seconds())
+        if dt < 0:
+            continue
+        if dt <= idle_threshold_seconds:
+            active_sec += dt
+        else:
+            active_sec += idle_threshold_seconds
+            idle_sec += (dt - idle_threshold_seconds)
+            idle_gaps += 1
+
+    return {
+        "active_duration_seconds": active_sec,
+        "idle_duration_seconds": idle_sec,
+        "total_wall_clock_seconds": active_sec + idle_sec,
+        "idle_gaps_count": idle_gaps,
+    }
+
+
+def calculate_independent_correction_rate(
+    events: Sequence[dict[str, Any]],
+) -> dict[str, Any]:
+    """Compute Independent Correction Rate per category and overall (SRS FR-14).
+    
+    Double-Count Prevention:
+    Repeated references to the SAME utterance fingerprint are deduplicated into a single episode.
+    Only unique error episodes count toward the denominator. If resolved across subsequent turns,
+    the episode records its highest autonomy resolution (independent > hint_assisted).
+    """
+    episodes: dict[str, dict[str, Any]] = {}
+
+    for ev in events:
+        fp = ev.get("utterance_fingerprint") or compute_utterance_fingerprint(ev.get("learner_phrase", ""))
+        cat = ev.get("target_category", "OTH")
+        is_corr = ev.get("is_correct", False)
+        att_type = ev.get("attempt_type")
+
+        if fp not in episodes:
+            episodes[fp] = {
+                "category": cat,
+                "resolved": False,
+                "attempt_type": None,
+            }
+
+        # Track resolution of episode across turns
+        if is_corr:
+            if att_type == "independent":
+                episodes[fp]["resolved"] = True
+                episodes[fp]["attempt_type"] = "independent"
+            elif att_type == "hint_assisted" and episodes[fp]["attempt_type"] != "independent":
+                episodes[fp]["resolved"] = True
+                episodes[fp]["attempt_type"] = "hint_assisted"
+
+    # Group unique episodes by category
+    category_episodes: dict[str, dict[str, int]] = {}
+    for fp, ep in episodes.items():
+        cat = ep["category"]
+        if cat not in category_episodes:
+            category_episodes[cat] = {
+                "unique_error_episodes": 0,
+                "independent_corrections": 0,
+                "hint_assisted_corrections": 0,
+                "unresolved": 0,
+            }
+
+        category_episodes[cat]["unique_error_episodes"] += 1
+        if ep["resolved"] and ep["attempt_type"] == "independent":
+            category_episodes[cat]["independent_corrections"] += 1
+        elif ep["resolved"] and ep["attempt_type"] == "hint_assisted":
+            category_episodes[cat]["hint_assisted_corrections"] += 1
+        else:
+            category_episodes[cat]["unresolved"] += 1
+
+    # Format rates per category
+    categories_result: dict[str, Any] = {}
+    total_unique_episodes = 0
+    total_independent = 0
+
+    for cat, counts in category_episodes.items():
+        tot = counts["unique_error_episodes"]
+        indep = counts["independent_corrections"]
+        total_unique_episodes += tot
+        total_independent += indep
+
+        rate = _round_metric((indep / tot * 100.0), 1) if tot > 0 else 0.0
+        categories_result[cat] = {
+            "unique_error_episodes": tot,
+            "independent_corrections": indep,
+            "hint_assisted_corrections": counts["hint_assisted_corrections"],
+            "unresolved": counts["unresolved"],
+            "independent_correction_rate_pct": rate,
+        }
+
+    overall_rate = (
+        _round_metric((total_independent / total_unique_episodes * 100.0), 1)
+        if total_unique_episodes > 0
+        else 0.0
+    )
+
+    return {
+        "overall_rate_pct": overall_rate,
+        "total_unique_error_episodes": total_unique_episodes,
+        "total_independent_corrections": total_independent,
+        "category_breakdown": categories_result,
+        "disclaimer": "Descriptive practice metric only. Never used as an official assessment score or proficiency certification.",
+    }
+
+
+def calculate_adherence_statistics(
+    sessions: Sequence[dict[str, Any]],
+    expected_sessions_per_week: int = 3,
+    expected_minutes_per_session: int = 15,
+) -> dict[str, Any]:
+    """Calculate researcher intervention adherence metrics across practice sessions.
+    
+    Computes total active minutes, completed sessions, and adherence rate vs expected target.
+    """
+    total_active_seconds = sum(s.get("active_duration_seconds", 0) for s in sessions)
+    completed_sessions = sum(1 for s in sessions if s.get("status") == "completed")
+    total_active_minutes = _round_metric(total_active_seconds / 60.0, 1)
+
+    # Estimate span in weeks from earliest to latest session
+    weeks_count = 1.0
+    valid_starts = [s["start_time"] for s in sessions if s.get("start_time")]
+    if len(valid_starts) >= 2:
+        earliest = min(valid_starts)
+        latest = max(valid_starts)
+        days = max(1, (latest - earliest).days)
+        weeks_count = max(1.0, _round_metric(days / 7.0, 1))
+
+    expected_total_minutes = weeks_count * expected_sessions_per_week * expected_minutes_per_session
+    expected_total_sessions = int(weeks_count * expected_sessions_per_week)
+
+    adherence_pct = (
+        _round_metric((total_active_minutes / expected_total_minutes * 100.0), 1)
+        if expected_total_minutes > 0
+        else 100.0
+    )
+
+    sessions_per_week = _round_metric(completed_sessions / weeks_count, 1)
+
+    return {
+        "total_active_minutes": total_active_minutes,
+        "completed_sessions": completed_sessions,
+        "active_duration_seconds": total_active_seconds,
+        "estimated_weeks": weeks_count,
+        "sessions_per_week": sessions_per_week,
+        "expected_sessions_per_week": expected_sessions_per_week,
+        "expected_total_minutes": expected_total_minutes,
+        "adherence_percentage": adherence_pct,
+        "status_label": "High Adherence" if adherence_pct >= 80.0 else "Needs Encouragement",
+    }
+
