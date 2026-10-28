@@ -17,10 +17,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.deps import get_current_user, require_roles
-from app.models.assessment import Assessment, ErrorAnnotation
+from app.models.assessment import Assessment, AssessmentType, ErrorAnnotation
 from app.models.identity import User, UserRole
 from app.models.research import Participant
+from app.research.metrics import compute_comparative_report
 from app.services.analysis import error_analysis_service
+from app.services.review import review_service
 
 router = APIRouter(prefix="/assessments", tags=["Error Analysis & Evidence Lens"])
 
@@ -270,3 +272,100 @@ async def get_review_queue(
             )
 
     return queue_items
+
+
+@router.get("/{assessment_id}/comparative-report", response_model=dict[str, Any])
+async def get_comparative_assessment_report(
+    assessment_id: uuid.UUID,
+    counting_rule: str = Query(default="count_all", description="Frozen rubric counting rule: count_all or count_one_per_sentence"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Retrieve pre-to-post comparative report with Syntax Fingerprint and Reproducibility Panel (Phase P12)."""
+    # 1. Fetch target assessment
+    stmt = select(Assessment).where(Assessment.assessment_id == assessment_id)
+    assessment = (await db.execute(stmt)).scalar_one_or_none()
+    if not assessment:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assessment not found.")
+
+    # 2. Check participant / reviewer access
+    if current_user.role == UserRole.PARTICIPANT:
+        participant = await get_participant_for_user(current_user, db)
+        if assessment.participant_id != participant.participant_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
+        if not assessment.is_visible_to_participant:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Comparative report is restricted during blinded evaluation windows.",
+            )
+    elif current_user.role == UserRole.REVIEWER:
+        has_access = await review_service.check_reviewer_access(db, assessment.assessment_id, current_user)
+        if not has_access:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access restricted.")
+
+    # 3. Identify Pre and Post assessments
+    part_id = assessment.participant_id
+    if assessment.assessment_type == AssessmentType.POST:
+        post_ass = assessment
+        # Look up baseline pre-test
+        pre_stmt = (
+            select(Assessment)
+            .where(
+                Assessment.participant_id == part_id,
+                Assessment.assessment_type == AssessmentType.PRE,
+                Assessment.is_official == True,
+            )
+            .order_by(Assessment.created_at.desc())
+        )
+        pre_ass = (await db.execute(pre_stmt)).scalars().first()
+        if not pre_ass:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Corresponding baseline pre-test assessment not found for this participant.",
+            )
+    else:
+        pre_ass = assessment
+        # Look up post-test
+        post_stmt = (
+            select(Assessment)
+            .where(
+                Assessment.participant_id == part_id,
+                Assessment.assessment_type == AssessmentType.POST,
+                Assessment.is_official == True,
+            )
+            .order_by(Assessment.created_at.desc())
+        )
+        post_ass = (await db.execute(post_stmt)).scalars().first()
+        if not post_ass:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Corresponding post-test assessment not found for this participant.",
+            )
+
+    # 4. Fetch effective annotations (reviewer decisions override AI)
+    pre_effective = await review_service.get_effective_annotations(db, pre_ass.assessment_id)
+    post_effective = await review_service.get_effective_annotations(db, post_ass.assessment_id)
+
+    # 5. Pure stateless calculation via app.research.metrics
+    report = compute_comparative_report(
+        pre_annotations=pre_effective,
+        pre_word_count=pre_ass.word_count,
+        post_annotations=post_effective,
+        post_word_count=post_ass.word_count,
+        rubric_version=post_ass.rubric_version or pre_ass.rubric_version,
+        pre_prompt_version=pre_ass.prompt_version,
+        post_prompt_version=post_ass.prompt_version,
+        model_version=post_ass.model_version,
+        stt_version=post_ass.stt_version,
+        pre_transcript=pre_ass.transcript,
+        post_transcript=post_ass.transcript,
+        counting_rule=counting_rule,
+        is_pre_verified=pre_ass.is_verified,
+        is_post_verified=post_ass.is_verified,
+    )
+
+    report["pre_assessment_id"] = str(pre_ass.assessment_id)
+    report["post_assessment_id"] = str(post_ass.assessment_id)
+    report["participant_id"] = str(part_id)
+
+    return report

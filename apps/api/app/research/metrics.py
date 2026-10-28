@@ -205,6 +205,309 @@ def compare_assessments(
     )
 
 
+# --- Phase P12: Post-Test Comparative Metrics Engine & Reproducibility Panel ---
+
+STANDARD_CAUTION_TEXT = (
+    "This is a descriptive comparison and does not by itself show that AI caused the change."
+)
+
+CATEGORY_NAMES: dict[str, str] = {
+    "TNS": "Tense and Aspect",
+    "SVA": "Subject-Verb Agreement",
+    "WO": "Word Order",
+    "AUX": "Auxiliary Verb Usage",
+    "ART": "Articles (Definite / Indefinite / Zero)",
+    "PREP": "Prepositions",
+    "PRO": "Pronouns",
+    "OTH": "Other Syntactic Variations",
+}
+
+EXCLUDED_DECISION_TYPES = {
+    "rejected",
+    "uncertain",
+    "transcription_related",
+    "acceptable_variation",
+}
+
+EXCLUDED_FLAGS = {
+    "uncertain",
+    "transcription_related",
+    "acceptable_variation",
+}
+
+
+def filter_assessable_annotations(
+    annotations: Sequence[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], int]:
+    """Filter effective annotations for research assessability.
+    
+    Excludes items with decision or flag of:
+    - rejected
+    - uncertain
+    - transcription_related
+    - acceptable_variation
+    Returns (assessable_annotations, excluded_count).
+    """
+    assessable: list[dict[str, Any]] = []
+    excluded_count = 0
+
+    for ann in annotations:
+        rev_status = str(ann.get("review_status") or "").lower()
+        flag = str(ann.get("flag") or "").lower()
+        is_active = ann.get("is_active_for_metrics", True)
+
+        if not is_active or rev_status in EXCLUDED_DECISION_TYPES or flag in EXCLUDED_FLAGS:
+            excluded_count += 1
+        else:
+            assessable.append(ann)
+
+    return assessable, excluded_count
+
+
+def apply_sentence_counting_rule(
+    assessable_annotations: Sequence[dict[str, Any]],
+    transcript: str | None,
+    counting_rule: str = "count_all",
+) -> list[dict[str, Any]]:
+    """Apply frozen rubric rule for multiple errors in one sentence.
+    
+    - 'count_all' (default): Every assessable error in a sentence is counted.
+    - 'count_one_per_sentence': At most one error per sentence boundary is counted.
+    """
+    if counting_rule != "count_one_per_sentence" or not transcript or not transcript.strip():
+        return list(assessable_annotations)
+
+    # Split transcript into sentence spans
+    sentence_spans: list[tuple[int, int]] = []
+    for m in re.finditer(r'[^.!?]+(?:[.!?]+|\Z)', transcript):
+        sentence_spans.append((m.start(), m.end()))
+
+    if not sentence_spans:
+        return list(assessable_annotations)
+
+    counted: list[dict[str, Any]] = []
+    seen_sentence_indices: set[int] = set()
+
+    for ann in assessable_annotations:
+        start_char = ann.get("start_char", 0)
+        # Find matching sentence
+        sent_idx = 0
+        for idx, (s_start, s_end) in enumerate(sentence_spans):
+            if s_start <= start_char < s_end:
+                sent_idx = idx
+                break
+
+        if sent_idx not in seen_sentence_indices:
+            seen_sentence_indices.add(sent_idx)
+            counted.append(ann)
+
+    return counted
+
+
+def compute_comparative_report(
+    pre_annotations: Sequence[dict[str, Any]],
+    pre_word_count: int,
+    post_annotations: Sequence[dict[str, Any]],
+    post_word_count: int,
+    rubric_version: str,
+    pre_prompt_version: str | None = None,
+    post_prompt_version: str | None = None,
+    model_version: str = "mock-syntax-v1",
+    stt_version: str = "mock-stt-v1",
+    pre_transcript: str | None = None,
+    post_transcript: str | None = None,
+    counting_rule: str = "count_all",
+    is_pre_verified: bool = False,
+    is_post_verified: bool = False,
+) -> dict[str, Any]:
+    """Compute comprehensive Phase P12 Pre-to-Post Comparative Report.
+    
+    CRITICAL RESEARCH PROTOCOLS (SRS Section 7, 14, FR-15):
+    1. Pure module calculation: zero I/O, deterministic output.
+    2. Effective annotation set: reviewer decisions override AI candidates.
+    3. Exclusions: rejected, uncertain, transcription_related, acceptable_variation excluded.
+    4. Sentence counting: adheres to frozen rubric rule ('count_all' vs 'count_one_per_sentence').
+    5. Relative reduction: ((pre_rate - post_rate) / pre_rate) * 100 ONLY if pre_rate > 0; otherwise N/A.
+    6. Categories with zero post count: strictly labelled 'not observed in this sample', NEVER 'mastered'.
+    7. Provisional marking: unreviewed assessments are visibly flagged as 'provisional'.
+    8. Standard caution: 'This is a descriptive comparison and does not by itself show that AI caused the change.'
+    9. Reproducibility panel: full formula, inputs, denominators, versions for auditability.
+    """
+    # 1. Filter assessable annotations
+    pre_assessable_raw, pre_excluded = filter_assessable_annotations(pre_annotations)
+    post_assessable_raw, post_excluded = filter_assessable_annotations(post_annotations)
+
+    # 2. Apply sentence counting rule
+    pre_final = apply_sentence_counting_rule(pre_assessable_raw, pre_transcript, counting_rule)
+    post_final = apply_sentence_counting_rule(post_assessable_raw, post_transcript, counting_rule)
+
+    pre_error_count = len(pre_final)
+    post_error_count = len(post_final)
+
+    # 3. Overall error rates per 100 words
+    pre_rate = calculate_error_rate(pre_error_count, pre_word_count)
+    post_rate = calculate_error_rate(post_error_count, post_word_count)
+
+    # 4. Overall absolute and relative reductions
+    abs_reduction = calculate_absolute_reduction(pre_rate, post_rate)
+    rel_reduction, rel_status = calculate_relative_reduction(pre_rate, post_rate)
+
+    # 5. Category-level breakdowns
+    pre_cat_counts: dict[str, int] = {c.value: 0 for c in ErrorCategory}
+    for ann in pre_final:
+        cat = ann.get("category_code", "OTH")
+        if cat in pre_cat_counts:
+            pre_cat_counts[cat] += 1
+        else:
+            pre_cat_counts["OTH"] += 1
+
+    post_cat_counts: dict[str, int] = {c.value: 0 for c in ErrorCategory}
+    for ann in post_final:
+        cat = ann.get("category_code", "OTH")
+        if cat in post_cat_counts:
+            post_cat_counts[cat] += 1
+        else:
+            post_cat_counts["OTH"] += 1
+
+    category_comparisons: dict[str, dict[str, Any]] = {}
+    syntax_fingerprint: list[dict[str, Any]] = []
+
+    for cat in ErrorCategory:
+        c_code = cat.value
+        c_name = CATEGORY_NAMES.get(c_code, c_code)
+        c_pre_cnt = pre_cat_counts[c_code]
+        c_post_cnt = post_cat_counts[c_code]
+
+        c_pre_rate = calculate_error_rate(c_pre_cnt, pre_word_count)
+        c_post_rate = calculate_error_rate(c_post_cnt, post_word_count)
+
+        c_abs_red = calculate_absolute_reduction(c_pre_rate, c_post_rate)
+        c_rel_red, c_rel_status = calculate_relative_reduction(c_pre_rate, c_post_rate)
+
+        c_pre_status = "observed" if c_pre_cnt > 0 else "not observed in this sample"
+        # Scientific Rule: Zero count at post-test is labelled 'not observed in this sample', NEVER 'mastered'
+        c_post_status = "observed" if c_post_cnt > 0 else "not observed in this sample"
+
+        cat_data = {
+            "category_code": c_code,
+            "category_name": c_name,
+            "pre_count": c_pre_cnt,
+            "post_count": c_post_cnt,
+            "pre_words": pre_word_count,
+            "post_words": post_word_count,
+            "pre_rate_per_100": c_pre_rate,
+            "post_rate_per_100": c_post_rate,
+            "absolute_reduction": c_abs_red,
+            "relative_reduction_pct": c_rel_red,
+            "relative_reduction_status": c_rel_status,
+            "pre_status_label": c_pre_status,
+            "post_status_label": c_post_status,
+        }
+        category_comparisons[c_code] = cat_data
+
+        syntax_fingerprint.append({
+            "category_code": c_code,
+            "category_name": c_name,
+            "pre_rate": c_pre_rate,
+            "post_rate": c_post_rate,
+            "pre_count": c_pre_cnt,
+            "post_count": c_post_cnt,
+            "pre_observed": c_pre_cnt > 0,
+            "post_observed": c_post_cnt > 0,
+            "pre_status_label": c_pre_status,
+            "post_status_label": c_post_status,
+        })
+
+    # 6. Provisional status determination
+    is_provisional = not (is_pre_verified and is_post_verified)
+    status_label = "provisional" if is_provisional else "verified"
+    provisional_warning = (
+        "Provisional analysis: human review pending. One or both assessments have not been verified by a researcher."
+        if is_provisional
+        else None
+    )
+
+    # 7. Reproducibility Panel Metadata (Signature Feature E)
+    reproducibility_panel = {
+        "formulas": {
+            "error_rate_per_100_words": "(assessable_error_count / total_words) * 100",
+            "absolute_reduction": "pre_rate - post_rate",
+            "relative_reduction_pct": "((pre_rate - post_rate) / pre_rate) * 100 (defined ONLY if pre_rate > 0)",
+            "category_error_rate": "(category_assessable_count / total_words) * 100",
+        },
+        "pre_inputs": {
+            "annotation_set_used": "effective",
+            "raw_annotation_count": len(pre_annotations),
+            "assessable_error_count": pre_error_count,
+            "excluded_items_count": pre_excluded,
+            "total_words": pre_word_count,
+            "counting_rule": counting_rule,
+            "rubric_version": rubric_version,
+            "prompt_version": pre_prompt_version,
+            "model_version": model_version,
+            "stt_version": stt_version,
+            "is_verified": is_pre_verified,
+        },
+        "post_inputs": {
+            "annotation_set_used": "effective",
+            "raw_annotation_count": len(post_annotations),
+            "assessable_error_count": post_error_count,
+            "excluded_items_count": post_excluded,
+            "total_words": post_word_count,
+            "counting_rule": counting_rule,
+            "rubric_version": rubric_version,
+            "prompt_version": post_prompt_version,
+            "model_version": model_version,
+            "stt_version": stt_version,
+            "is_verified": is_post_verified,
+        },
+        "verification_status": {
+            "is_pre_verified": is_pre_verified,
+            "is_post_verified": is_post_verified,
+            "overall_status": status_label,
+        },
+    }
+
+    return {
+        "is_provisional": is_provisional,
+        "status_label": status_label,
+        "provisional_warning": provisional_warning,
+        "standard_caution": STANDARD_CAUTION_TEXT,
+        "overall_comparison": {
+            "pre_word_count": pre_word_count,
+            "post_word_count": post_word_count,
+            "pre_error_count": pre_error_count,
+            "post_error_count": post_error_count,
+            "pre_rate_per_100": pre_rate,
+            "post_rate_per_100": post_rate,
+            "absolute_reduction": abs_reduction,
+            "relative_reduction_pct": rel_reduction,
+            "relative_reduction_status": rel_status,
+        },
+        "pre_summary": {
+            "word_count": pre_word_count,
+            "raw_annotation_count": len(pre_annotations),
+            "assessable_error_count": pre_error_count,
+            "excluded_count": pre_excluded,
+            "error_rate_per_100": pre_rate,
+            "is_verified": is_pre_verified,
+            "status_label": "verified" if is_pre_verified else "provisional",
+        },
+        "post_summary": {
+            "word_count": post_word_count,
+            "raw_annotation_count": len(post_annotations),
+            "assessable_error_count": post_error_count,
+            "excluded_count": post_excluded,
+            "error_rate_per_100": post_rate,
+            "is_verified": is_post_verified,
+            "status_label": "verified" if is_post_verified else "provisional",
+        },
+        "category_comparisons": category_comparisons,
+        "syntax_fingerprint": syntax_fingerprint,
+        "reproducibility_panel": reproducibility_panel,
+    }
+
+
 def calculate_cohens_kappa(
     rater1_labels: Sequence[str],
     rater2_labels: Sequence[str],
