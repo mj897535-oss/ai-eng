@@ -108,7 +108,7 @@ async def request_id_and_logging_middleware(
         raise exc
 
 
-# Security Headers Middleware (OWASP ASVS L2 baseline)
+# Security Headers Middleware (OWASP ASVS L2 baseline + HSTS)
 @app.middleware("http")
 async def add_security_headers(
     request: Request,
@@ -119,8 +119,9 @@ async def add_security_headers(
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains; preload"
     response.headers["Content-Security-Policy"] = (
-        "default-src 'self'; script-src 'self'; frame-ancestors 'none'; object-src 'none';"
+        "default-src 'self'; script-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self';"
     )
     return response
 
