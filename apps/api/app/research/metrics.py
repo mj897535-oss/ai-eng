@@ -839,3 +839,130 @@ def calculate_adherence_statistics(
         "status_label": "High Adherence" if adherence_pct >= 80.0 else "Needs Encouragement",
     }
 
+
+def compute_cohort_distribution(
+    values: Sequence[float],
+) -> dict[str, float | int]:
+    """Calculate descriptive distribution statistics (n, mean, median, min, max, std_dev).
+    
+    Zero I/O, deterministic, pure function per SRS Section 7.
+    """
+    if not values:
+        return {
+            "n": 0,
+            "mean": 0.0,
+            "median": 0.0,
+            "min": 0.0,
+            "max": 0.0,
+            "std_dev": 0.0,
+        }
+
+    n = len(values)
+    mean_val = _round_metric(sum(values) / n, 2)
+
+    sorted_vals = sorted(values)
+    if n % 2 == 1:
+        median_val = sorted_vals[n // 2]
+    else:
+        median_val = _round_metric((sorted_vals[n // 2 - 1] + sorted_vals[n // 2]) / 2.0, 2)
+
+    min_val = _round_metric(sorted_vals[0], 2)
+    max_val = _round_metric(sorted_vals[-1], 2)
+
+    if n > 1:
+        variance = sum((x - mean_val) ** 2 for x in values) / (n - 1)
+        std_dev = _round_metric(variance ** 0.5, 2)
+    else:
+        std_dev = 0.0
+
+    return {
+        "n": n,
+        "mean": mean_val,
+        "median": median_val,
+        "min": min_val,
+        "max": max_val,
+        "std_dev": std_dev,
+    }
+
+
+def compute_group_comparative_aggregates(
+    paired_participant_data: Sequence[dict[str, Any]],
+) -> dict[str, Any]:
+    """Compute cohort-level aggregate pre vs post distributions and reductions.
+    
+    CRITICAL RESEARCH INTEGRITY RULE:
+    Group aggregates must be computed strictly by this pure function.
+    Returns n, raw counts, rates, and full distributions (mean, median, min, max, std_dev).
+    """
+    if not paired_participant_data:
+        return {
+            "n": 0,
+            "total_pre_errors": 0,
+            "total_post_errors": 0,
+            "total_pre_words": 0,
+            "total_post_words": 0,
+            "pre_distribution": compute_cohort_distribution([]),
+            "post_distribution": compute_cohort_distribution([]),
+            "absolute_reduction_distribution": compute_cohort_distribution([]),
+            "mean_relative_reduction_pct": None,
+            "category_distributions": {},
+            "all_verified": True,
+            "provisional_count": 0,
+        }
+
+    n = len(paired_participant_data)
+    pre_rates = [float(p["pre_rate"]) for p in paired_participant_data]
+    post_rates = [float(p["post_rate"]) for p in paired_participant_data]
+    abs_reductions = [calculate_absolute_reduction(p["pre_rate"], p["post_rate"]) for p in paired_participant_data]
+
+    total_pre_errors = sum(p.get("pre_error_count", 0) for p in paired_participant_data)
+    total_post_errors = sum(p.get("post_error_count", 0) for p in paired_participant_data)
+    total_pre_words = sum(p.get("pre_word_count", 0) for p in paired_participant_data)
+    total_post_words = sum(p.get("post_word_count", 0) for p in paired_participant_data)
+
+    provisional_count = sum(1 for p in paired_participant_data if p.get("is_provisional", False))
+
+    valid_rel_reductions = [
+        calculate_relative_reduction(p["pre_rate"], p["post_rate"])[0]
+        for p in paired_participant_data
+        if p["pre_rate"] > 0
+    ]
+    mean_rel_red = (
+        _round_metric(sum(valid_rel_reductions) / len(valid_rel_reductions), 1)
+        if valid_rel_reductions
+        else None
+    )
+
+    cat_distributions: dict[str, Any] = {}
+    for cat in ErrorCategory:
+        c_code = cat.value
+        c_pre_rates = [p.get("category_pre_rates", {}).get(c_code, 0.0) for p in paired_participant_data]
+        c_post_rates = [p.get("category_post_rates", {}).get(c_code, 0.0) for p in paired_participant_data]
+        c_pre_counts = sum(p.get("category_pre_counts", {}).get(c_code, 0) for p in paired_participant_data)
+        c_post_counts = sum(p.get("category_post_counts", {}).get(c_code, 0) for p in paired_participant_data)
+
+        cat_distributions[c_code] = {
+            "category_code": c_code,
+            "category_name": CATEGORY_NAMES.get(c_code, c_code),
+            "pre_count": c_pre_counts,
+            "post_count": c_post_counts,
+            "pre_distribution": compute_cohort_distribution(c_pre_rates),
+            "post_distribution": compute_cohort_distribution(c_post_rates),
+        }
+
+    return {
+        "n": n,
+        "total_pre_errors": total_pre_errors,
+        "total_post_errors": total_post_errors,
+        "total_pre_words": total_pre_words,
+        "total_post_words": total_post_words,
+        "pre_distribution": compute_cohort_distribution(pre_rates),
+        "post_distribution": compute_cohort_distribution(post_rates),
+        "absolute_reduction_distribution": compute_cohort_distribution(abs_reductions),
+        "mean_relative_reduction_pct": mean_rel_red,
+        "category_distributions": cat_distributions,
+        "all_verified": provisional_count == 0,
+        "provisional_count": provisional_count,
+    }
+
+
