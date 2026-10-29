@@ -253,6 +253,45 @@ function LoginForm() {
                     Research Privacy & Pseudonymisation Policy
                   </button>
                 </div>
+
+                {/* Quick-Fill Seed Test Accounts */}
+                <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 text-center">
+                  <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">
+                    Quick-Fill Research Seed Accounts:
+                  </p>
+                  <div className="flex flex-wrap gap-2 justify-center">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIdentifier("researcher@syntaxlens.edu");
+                        setPassword("SyntaxLens@2026!");
+                      }}
+                      className="px-2.5 py-1 text-xs rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors"
+                    >
+                      Lead Researcher
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIdentifier("reviewer@syntaxlens.edu");
+                        setPassword("SyntaxLens@2026!");
+                      }}
+                      className="px-2.5 py-1 text-xs rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-900/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors"
+                    >
+                      Reviewer
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIdentifier("student1@syntaxlens.edu");
+                        setPassword("SyntaxLens@2026!");
+                      }}
+                      className="px-2.5 py-1 text-xs rounded-md bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors"
+                    >
+                      Student 001
+                    </button>
+                  </div>
+                </div>
               </CardFooter>
             </form>
           </Card>
