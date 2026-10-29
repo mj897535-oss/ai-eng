@@ -1,98 +1,221 @@
 """SyntaxLens Database Seeding Module.
 
 Seeds initial frozen research rubrics, prompt versions, topic bank, and baseline research accounts.
-Can be executed as a module (`python -m app.seed`) or imported into startup scripts.
+Uses SQLAlchemy sync session to ensure cross-database compatibility (PostgreSQL & SQLite).
 """
 
 import json
 import uuid
+from datetime import UTC, datetime
 
 from passlib.context import CryptContext
-from sqlalchemy import text
 
-from app.core.database import sync_engine
+from app.core.config import settings
+from app.core.database import SyncSessionLocal
+from app.models.assessment import AssessmentTask
+from app.models.config import (
+    AssessmentPeriod,
+    LifecycleState,
+    PromptRole,
+    PromptVersion,
+    RubricVersion,
+)
+from app.models.identity import User, UserRole
+from app.models.research import Participant, StudyGroup
+from app.services.config import (
+    DEFAULT_8_CATEGORIES,
+    DEFAULT_COUNTING_RULES,
+    DEFAULT_TOPIC_PAIRS,
+    DEFAULT_WORD_COUNTING_RULES,
+)
 
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
 
-def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
-
-
-def seed():
+def seed() -> None:
     print("Starting SyntaxLens seed procedure...")
+    session = SyncSessionLocal()
+    try:
+        now = datetime.now(UTC)
 
-    with sync_engine.begin() as conn:
-        # 1. Seed Frozen Rubric Version
-        rubric_id = str(uuid.uuid4())
-        taxonomy = {
-            "categories": [
-                {"code": "TNS", "name": "Tense and Aspect", "description": "Deviations in verb tense or aspectual markers."},
-                {"code": "SVA", "name": "Subject-Verb Agreement", "description": "Agreement between subject person/number and verb form."},
-                {"code": "WO", "name": "Word Order", "description": "Syntactic positioning of clausal or phrasal elements."},
-                {"code": "AUX", "name": "Auxiliary Usage", "description": "Omission, substitution, or redundant insertion of auxiliary verbs."},
-                {"code": "ART", "name": "Article Usage", "description": "Definite, indefinite, or zero article deviations."},
-                {"code": "PREP", "name": "Preposition Choice", "description": "Non-standard preposition selection or omission."},
-                {"code": "PRO", "name": "Pronoun Reference", "description": "Case, gender, number, or relative pronoun mismatch."},
-                {"code": "OTH", "name": "Other / Uncertain", "description": "Syntactic deviations requiring specialist review or acceptable regional variation."}
-            ]
-        }
-        conn.execute(text("""
-            INSERT INTO research.rubric_versions (rubric_id, version_code, name, description, taxonomy_json, is_frozen)
-            VALUES (:id, 'v1.0-jam-phd', 'PhD Spoken English Syntax Rubric v1.0', 'Standardized 8-category syntactic taxonomy for Indian speakers of English.', :tax, true)
-            ON CONFLICT (version_code) DO NOTHING;
-        """), {"id": rubric_id, "tax": json.dumps(taxonomy)})
+        # 1. Rubric Version v1.0-jam-phd
+        existing_rubric = (
+            session.query(RubricVersion)
+            .filter(RubricVersion.version_code == settings.DEFAULT_RUBRIC_VERSION)
+            .first()
+        )
+        if not existing_rubric:
+            rubric = RubricVersion(
+                rubric_id=uuid.uuid4(),
+                version_code=settings.DEFAULT_RUBRIC_VERSION,
+                name="Doctoral Baseline Spoken English Syntactic Rubric",
+                description="8 core syntactic categories with counting rules and Indian English variation handling.",
+                categories_json=json.dumps(DEFAULT_8_CATEGORIES),
+                counting_rules=DEFAULT_COUNTING_RULES,
+                word_counting_rules=DEFAULT_WORD_COUNTING_RULES,
+                status=LifecycleState.FROZEN,
+                is_frozen=True,
+                change_notes="Initial baseline approved for doctoral research protocol.",
+                approved_at=now,
+                frozen_at=now,
+            )
+            session.add(rubric)
 
-        # 2. Seed Prompt Versions
-        conn.execute(text("""
-            INSERT INTO research.prompt_versions (prompt_id, prompt_type, version_code, prompt_template, is_frozen)
-            VALUES
-            (:id1, 'pre_test', 'v1.0-jam-pre', 'Neutral assessor. Transcribe faithfully and label syntactic candidate errors.', true),
-            (:id2, 'tutor', 'v1.0-tutor-ladder', 'Supportive conversational tutor. Implement 4-step hint ladder (L0 quote, L1 hint, L2 rule, L3 reveal + transfer).', true),
-            (:id3, 'post_test', 'v1.0-jam-post', 'Neutral assessor. Independent post-test evaluation using identical rubric version.', true)
-            ON CONFLICT (version_code) DO NOTHING;
-        """), {"id1": str(uuid.uuid4()), "id2": str(uuid.uuid4()), "id3": str(uuid.uuid4())})
+        # 2. Prompts
+        pre_prompt = (
+            session.query(PromptVersion)
+            .filter(PromptVersion.version_code == "v1.0-pre-assessor")
+            .first()
+        )
+        if not pre_prompt:
+            session.add(
+                PromptVersion(
+                    prompt_id=uuid.uuid4(),
+                    prompt_role=PromptRole.PRE_TEST_ASSESSOR,
+                    version_code="v1.0-pre-assessor",
+                    name="Pre-Test Baseline Syntactic Assessor",
+                    prompt_template="Role: Neutral spoken-English syntax assessor. Transcribe faithfully and label candidate deviations with category, evidence, confidence, and review status.",
+                    output_schema_version="json-schema-v1.0",
+                    output_schema_json=json.dumps({"type": "object", "properties": {"deviations": {"type": "array"}}}),
+                    status=LifecycleState.FROZEN,
+                    is_frozen=True,
+                    change_notes="Baseline pre-test assessor prompt.",
+                    approved_at=now,
+                    frozen_at=now,
+                )
+            )
 
-        # 3. Seed Assessment Task Bank
-        tasks = [
-            ("A Memorable Journey", "Describe a memorable journey you took recently. Talk about where you went, how you travelled, and why it was special to you.", 60, 30),
-            ("My Typical College Day", "Describe your daily routine at college or work from morning until evening. Include your classes, activities, and interactions with peers.", 60, 30),
-            ("Role of Technology in Everyday Life", "Share your thoughts on how smartphones and technology impact daily communication in modern life.", 60, 30),
+        tutor_prompt = (
+            session.query(PromptVersion)
+            .filter(PromptVersion.version_code == settings.DEFAULT_PROMPT_VERSION)
+            .first()
+        )
+        if not tutor_prompt:
+            session.add(
+                PromptVersion(
+                    prompt_id=uuid.uuid4(),
+                    prompt_role=PromptRole.TUTOR,
+                    version_code=settings.DEFAULT_PROMPT_VERSION,
+                    name="AI Tutor Hint Ladder Progression",
+                    prompt_template="Role: Supportive conversational tutor. Use hint ladder: L0 quote, L1 hint, L2 rule cue, L3 reveal and new transfer check.",
+                    output_schema_version="json-schema-v1.0",
+                    output_schema_json=json.dumps({"type": "object", "properties": {"hint_level": {"type": "integer"}}}),
+                    status=LifecycleState.FROZEN,
+                    is_frozen=True,
+                    change_notes="Baseline tutor prompt enforcing hint ladder.",
+                    approved_at=now,
+                    frozen_at=now,
+                )
+            )
+
+        # 3. Assessment Tasks (Topic Bank Pairs)
+        for pair in DEFAULT_TOPIC_PAIRS:
+            pair_id = pair["pair_id"]
+            pre_t = pair["pre"]
+            if not session.query(AssessmentTask).filter(AssessmentTask.title == pre_t["title"]).first():
+                session.add(
+                    AssessmentTask(
+                        task_id=uuid.uuid4(),
+                        title=pre_t["title"],
+                        prompt_text=pre_t["prompt_text"],
+                        equivalence_group=pair_id,
+                        task_type="pre",
+                        difficulty_level=pair["difficulty"],
+                        rubric_version=settings.DEFAULT_RUBRIC_VERSION,
+                        prep_time_seconds=30,
+                        duration_seconds=60,
+                        is_active=True,
+                    )
+                )
+
+            post_t = pair["post"]
+            if not session.query(AssessmentTask).filter(AssessmentTask.title == post_t["title"]).first():
+                session.add(
+                    AssessmentTask(
+                        task_id=uuid.uuid4(),
+                        title=post_t["title"],
+                        prompt_text=post_t["prompt_text"],
+                        equivalence_group=pair_id,
+                        task_type="post",
+                        difficulty_level=pair["difficulty"],
+                        rubric_version=settings.DEFAULT_RUBRIC_VERSION,
+                        prep_time_seconds=30,
+                        duration_seconds=60,
+                        is_active=True,
+                    )
+                )
+
+        # 4. Assessment Period
+        if not session.query(AssessmentPeriod).filter(AssessmentPeriod.period_code == "period-2026-spring").first():
+            session.add(
+                AssessmentPeriod(
+                    period_id=uuid.uuid4(),
+                    period_code="period-2026-spring",
+                    name="Spring 2026 Doctoral Research Cohort",
+                    description="Active frozen assessment period with frozen v1.0 rubrics and prompts.",
+                    rubric_version_code=settings.DEFAULT_RUBRIC_VERSION,
+                    pre_prompt_version_code="v1.0-pre-assessor",
+                    tutor_prompt_version_code=settings.DEFAULT_PROMPT_VERSION,
+                    post_prompt_version_code="v1.0-post-assessor",
+                    status=LifecycleState.FROZEN,
+                    is_frozen=True,
+                    is_active=True,
+                    start_date=now,
+                    change_notes="Initial frozen study period.",
+                )
+            )
+
+        session.commit()
+
+        # 5. Seed Users
+        hashed_pw = pwd_context.hash("SyntaxLens@2026!")
+
+        users_data = [
+            ("researcher@syntaxlens.edu", "Lead Researcher", UserRole.RESEARCHER_ADMIN),
+            ("reviewer@syntaxlens.edu", "Independent Reviewer", UserRole.REVIEWER),
+            ("student1@syntaxlens.edu", "Student Participant 001", UserRole.PARTICIPANT),
         ]
-        for title, prompt, duration, prep in tasks:
-            conn.execute(text("""
-                INSERT INTO research.assessment_tasks (task_id, title, prompt_text, duration_seconds, prep_time_seconds, difficulty_level, rubric_version)
-                VALUES (:id, :title, :prompt, :dur, :prep, 'standard', 'v1.0-jam-phd')
-                ON CONFLICT DO NOTHING;
-            """), {"id": str(uuid.uuid4()), "title": title, "prompt": prompt, "dur": duration, "prep": prep})
 
-        # 4. Seed Research Accounts
-        # Password for all initial seed accounts: SyntaxLens@2026!
-        hashed_pw = hash_password("SyntaxLens@2026!")
+        for email, full_name, role in users_data:
+            existing = session.query(User).filter(User.email == email).first()
+            if not existing:
+                u = User(
+                    id=uuid.uuid4(),
+                    email=email,
+                    full_name=full_name,
+                    hashed_password=hashed_pw,
+                    role=role,
+                    is_active=True,
+                    must_change_password=False,
+                )
+                session.add(u)
+                session.commit()
 
-        researcher_id = str(uuid.uuid4())
-        reviewer_id = str(uuid.uuid4())
-        student_id = str(uuid.uuid4())
+                if role == UserRole.PARTICIPANT:
+                    if not session.query(Participant).filter(Participant.user_id == u.id).first():
+                        session.add(
+                            Participant(
+                                participant_id=uuid.uuid4(),
+                                user_id=u.id,
+                                research_code="SL-2026-001",
+                                study_group=StudyGroup.INTERVENTION,
+                                age=21,
+                                mother_tongue="Marathi",
+                                school_medium="English",
+                                country="India",
+                                state="Maharashtra",
+                                city="Pune",
+                                is_active=True,
+                            )
+                        )
+                        session.commit()
 
-        conn.execute(text("""
-            INSERT INTO identity.users (id, email, full_name, hashed_password, role, is_active)
-            VALUES
-            (:r_id, 'researcher@syntaxlens.edu', 'Lead Researcher', :pw, 'researcher', true),
-            (:rev_id, 'reviewer@syntaxlens.edu', 'Independent Reviewer', :pw, 'reviewer', true),
-            (:s_id, 'student1@syntaxlens.edu', 'Student Participant 001', :pw, 'student', true)
-            ON CONFLICT (email) DO NOTHING;
-        """), {"r_id": researcher_id, "rev_id": reviewer_id, "s_id": student_id, "pw": hashed_pw})
-
-        # Seed Participant Profile for student1
-        participant_id = str(uuid.uuid4())
-        conn.execute(text("""
-            INSERT INTO research.participants (participant_id, research_code, user_id, age, mother_tongue, school_medium, country, state, city, study_group)
-            SELECT :p_id, 'SL-2026-001', id, 21, 'Marathi', 'English', 'India', 'Maharashtra', 'Pune', 'intervention'
-            FROM identity.users WHERE email = 'student1@syntaxlens.edu'
-            ON CONFLICT (research_code) DO NOTHING;
-        """), {"p_id": participant_id})
-
-    print("Seeding completed successfully.")
+        print("Seeding completed successfully.")
+    except Exception as e:
+        session.rollback()
+        print(f"Seed encountered notice: {e}")
+    finally:
+        session.close()
 
 
 if __name__ == "__main__":

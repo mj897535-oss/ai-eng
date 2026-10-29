@@ -144,6 +144,13 @@ app.include_router(export_router, prefix=settings.API_PREFIX)
 
 
 # Health & Readiness Probes
+@app.get("/", tags=["System"])
+@app.head("/", tags=["System"])
+async def root_probe() -> dict[str, str]:
+    """Root liveness probe for reverse proxies and load balancers."""
+    return {"status": "ok", "service": "SyntaxLens API", "version": "1.0.0"}
+
+
 @app.get(f"{settings.API_PREFIX}/health", tags=["System"])
 async def health_check() -> dict[str, Any]:
     """Liveness probe verifying service availability and frozen versions."""

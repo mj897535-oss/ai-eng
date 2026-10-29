@@ -20,11 +20,11 @@ if echo "$DATABASE_URL" | grep -q "postgresql"; then
     echo "==> Running Alembic Database Migrations on PostgreSQL..."
     alembic upgrade head || {
         echo "==> Alembic upgrade fallback; ensuring tables exist via models..."
-        python -c "from app.core.database import Base, sync_engine; Base.metadata.create_all(bind=sync_engine)" || true
+        python -c "from app.models import Base; from app.core.database import sync_engine; Base.metadata.create_all(bind=sync_engine)" || true
     }
 else
     echo "==> SQLite detected. Initializing tables via SQLAlchemy..."
-    python -c "from app.core.database import Base, sync_engine; Base.metadata.create_all(bind=sync_engine)" || true
+    python -c "from app.models import Base; from app.core.database import sync_engine; Base.metadata.create_all(bind=sync_engine)" || true
 fi
 
 # Seed baseline data (idempotent, ON CONFLICT DO NOTHING)

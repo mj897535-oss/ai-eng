@@ -6,7 +6,7 @@ Supports both async (FastAPI application) and sync (Alembic / background scripts
 from collections.abc import AsyncGenerator
 from typing import Any
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -16,12 +16,18 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import settings
 
+is_sqlite = "sqlite" in settings.DATABASE_URL
+engine_kwargs: dict[str, Any] = {}
+if is_sqlite:
+    engine_kwargs["execution_options"] = {"schema_translate_map": {"identity": None, "research": None}}
+
 # Async engine for web requests
 async_engine = create_async_engine(
     settings.DATABASE_URL,
     echo=settings.DEBUG and settings.ENVIRONMENT == "development",
     future=True,
     pool_pre_ping=True,
+    **engine_kwargs,
 )
 
 AsyncSessionLocal = async_sessionmaker(
@@ -37,20 +43,8 @@ sync_engine = create_engine(
     settings.DATABASE_URL_SYNC,
     echo=False,
     pool_pre_ping=True,
+    **engine_kwargs,
 )
-
-if "sqlite" in settings.DATABASE_URL:
-    import os
-
-    def _attach_sqlite_schemas(dbapi_conn: Any, _record: Any) -> None:
-        db_dir = "/app" if os.path.exists("/app") else "."
-        cursor = dbapi_conn.cursor()
-        cursor.execute(f"ATTACH DATABASE '{db_dir}/syntaxlens_identity.db' AS identity")
-        cursor.execute(f"ATTACH DATABASE '{db_dir}/syntaxlens_research.db' AS research")
-        cursor.close()
-
-    event.listen(sync_engine, "connect", _attach_sqlite_schemas)
-    event.listen(async_engine.sync_engine, "connect", _attach_sqlite_schemas)
 
 SyncSessionLocal = sessionmaker(
     bind=sync_engine,
