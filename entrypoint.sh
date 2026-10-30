@@ -25,21 +25,42 @@ cd /app/apps/api
 PORT=8000 /bin/sh /app/apps/api/start.sh &
 BACKEND_PID=$!
 
-# 2. Wait briefly for backend to initialize
-sleep 4
-
-# 3. Start Next.js frontend on 127.0.0.1:3000
+# 2. Start Next.js frontend in background
 echo "==> Launching Next.js frontend on 127.0.0.1:3000..."
 cd /app/apps/web
 PORT=3000 HOSTNAME="127.0.0.1" npm start &
 FRONTEND_PID=$!
 
-# 4. Configure and run Nginx reverse proxy
+# 3. Wait for FastAPI backend upstream to be ready
+echo "==> Waiting for FastAPI backend (127.0.0.1:8000) to initialize..."
+RETRIES=0
+while [ $RETRIES -lt 30 ]; do
+    if curl -s -o /dev/null http://127.0.0.1:8000/api/v1/health; then
+        echo "✓ FastAPI backend is ready and listening on port 8000."
+        break
+    fi
+    sleep 1
+    RETRIES=$((RETRIES + 1))
+done
+
+# 4. Wait for Next.js frontend upstream to be ready
+echo "==> Waiting for Next.js frontend (127.0.0.1:3000) to initialize..."
+RETRIES=0
+while [ $RETRIES -lt 30 ]; do
+    if curl -s -o /dev/null http://127.0.0.1:3000/; then
+        echo "✓ Next.js frontend is ready and listening on port 3000."
+        break
+    fi
+    sleep 1
+    RETRIES=$((RETRIES + 1))
+done
+
+# 5. Configure Nginx reverse proxy
 echo "==> Configuring Nginx reverse proxy on port $PORT..."
 envsubst '$PORT' < /app/nginx.conf.template > /etc/nginx/nginx.conf
 
-# Trap termination signals to stop child processes gracefully (POSIX signal names: TERM and INT)
+# Trap termination signals to stop child processes gracefully
 trap 'kill $BACKEND_PID $FRONTEND_PID 2>/dev/null; exit 0' TERM INT
 
-echo "==> Starting Nginx router on port $PORT..."
+echo "==> Starting Nginx router on port $PORT (all upstreams ready)..."
 nginx -g "daemon off;"
