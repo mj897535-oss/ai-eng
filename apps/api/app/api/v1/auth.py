@@ -297,7 +297,14 @@ async def google_auth(
         db.add(user)
         await db.flush()
 
-        rand_code = f"SL-2026-{random.randint(100, 999)}"
+        # Generate collision-free participant research code
+        rand_code = f"SL-2026-{random.randint(1000, 9999)}"
+        for _ in range(10):
+            p_check = await db.execute(select(Participant).where(Participant.research_code == rand_code))
+            if not p_check.scalar_one_or_none():
+                break
+            rand_code = f"SL-2026-{random.randint(1000, 9999)}"
+
         participant = Participant(
             participant_id=uuid.uuid4(),
             user_id=user.id,

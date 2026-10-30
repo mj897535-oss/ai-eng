@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     APP_SECRET_KEY: str = "dev-secret-key-must-be-replaced-in-production-environments-64-bytes"
     API_PREFIX: str = "/api/v1"
     CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    CORS_ORIGIN_REGEX: str = r"^https?://.*"
 
     # Database
     POSTGRES_USER: str = "syntaxlens_user"

@@ -59,18 +59,12 @@ function getCsrfTokenFromCookie(): string | null {
 }
 
 export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  let baseUrl = process.env["NEXT_PUBLIC_API_URL"] || "http://localhost:8000/api/v1";
+  let baseUrl = process.env["NEXT_PUBLIC_API_URL"] || "/api/v1";
 
-  // Auto-detect production Render domain if NEXT_PUBLIC_API_URL was defaulted to localhost
+  // In the browser, always default to relative /api/v1 for unified fullstack container
   if (typeof window !== "undefined") {
     if (!process.env["NEXT_PUBLIC_API_URL"] || process.env["NEXT_PUBLIC_API_URL"].includes("localhost")) {
-      if (window.location.hostname.endsWith(".onrender.com")) {
-        const parts = window.location.hostname.split(".");
-        // e.g. syntaxlens-web -> syntaxlens-api
-        const prefix = parts[0] ?? "syntaxlens-web";
-        const apiHost = prefix.replace(/-web$/, "-api");
-        baseUrl = `https://${apiHost}.onrender.com/api/v1`;
-      }
+      baseUrl = "/api/v1";
     }
   }
 
@@ -85,7 +79,9 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): 
   const url = `${baseUrl}${cleanEndpoint}`;
 
   const headers = new Headers(options.headers || {});
-  headers.set("Content-Type", "application/json");
+  if (!headers.has("Content-Type") && !(options.body instanceof FormData)) {
+    headers.set("Content-Type", "application/json");
+  }
 
   // Attach CSRF header on mutating requests
   const method = (options.method || "GET").toUpperCase();
@@ -96,20 +92,44 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): 
     }
   }
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
-    credentials: "include",
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...options,
+      headers,
+      credentials: "include",
+    });
+  } catch (netErr: any) {
+    throw {
+      code: "NETWORK_ERROR",
+      message: netErr?.message || "Network connection to SyntaxLens backend failed. Please check your connection or reload.",
+      request_id: "client-net-error",
+    } as ApiError;
+  }
 
   if (!response.ok) {
     let errorData: ApiError;
     try {
-      errorData = await response.json();
+      const rawText = await response.text();
+      try {
+        const json = JSON.parse(rawText);
+        errorData = {
+          code: json.code || `HTTP_${response.status}`,
+          message: json.message || json.detail || response.statusText || `Request failed with status ${response.status}`,
+          request_id: json.request_id || "unknown",
+          detail: json.detail,
+        };
+      } catch {
+        errorData = {
+          code: `HTTP_${response.status}`,
+          message: rawText.length > 0 && rawText.length < 200 ? rawText : (response.statusText || `Request failed with status ${response.status}. The backend may be starting up.`),
+          request_id: "unknown",
+        };
+      }
     } catch {
       errorData = {
         code: `HTTP_${response.status}`,
-        message: response.statusText || "Request failed",
+        message: response.statusText || `Request failed (${response.status})`,
         request_id: "unknown",
       };
     }
