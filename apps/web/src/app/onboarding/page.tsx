@@ -273,7 +273,7 @@ export default function OnboardingPage() {
         method: "POST",
         body: JSON.stringify({ step: "completed" }),
       });
-      router.push("/pre-test");
+      router.push("/assessment/pre");
     } catch (err: unknown) {
       const error = err as { message?: string };
       setErrorMsg(error.message || "Failed to complete onboarding.");
