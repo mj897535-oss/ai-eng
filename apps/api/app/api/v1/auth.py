@@ -33,7 +33,7 @@ from app.core.security import (
 )
 from app.core.session import session_store
 from app.models.identity import PasswordResetToken, User, UserRole
-from app.models.research import Participant
+from app.models.research import Participant, StudyGroup
 from app.services.audit import AuditService
 from app.services.email import email_service
 
@@ -76,6 +76,12 @@ class ResetPasswordRequest(BaseModel):
 class ResetPasswordConfirm(BaseModel):
     token: str = Field(..., description="Single-use reset token from email")
     new_password: str = Field(..., description="New secure password")
+
+
+class GoogleAuthRequest(BaseModel):
+    credential: str | None = Field(None, description="Google OAuth ID token / JWT")
+    email: str | None = Field(None, description="Google verified email address")
+    name: str | None = Field(None, description="User full name")
 
 
 # --- Endpoints ---
@@ -231,6 +237,127 @@ async def login(
         ),
         csrf_token=csrf_token,
         message="Sign-in successful",
+    )
+
+
+@router.post("/google", response_model=LoginResponse)
+async def google_auth(
+    req: GoogleAuthRequest,
+    request: Request,
+    response: Response,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> LoginResponse:
+    """Authenticate or register via Google Sign-In."""
+    import random
+    client_ip = request.client.host if request.client else "unknown"
+    user_agent = request.headers.get("User-Agent")
+
+    email: str | None = req.email
+    full_name: str = req.name or "Google Learner"
+
+    # Decode payload if raw JWT credential was sent
+    if req.credential and not email:
+        try:
+            import jwt
+            decoded = jwt.decode(req.credential, options={"verify_signature": False})
+            email = decoded.get("email")
+            full_name = decoded.get("name") or full_name
+        except Exception:
+            pass
+
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Google email verification failed. Please try again.",
+        )
+
+    clean_email = email.strip().lower()
+
+    # Look up existing user
+    stmt = select(User).where(User.email == clean_email)
+    user = (await db.execute(stmt)).scalar_one_or_none()
+    participant: Participant | None = None
+
+    if user:
+        if not user.is_active:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is deactivated.")
+        p_stmt = select(Participant).where(Participant.user_id == user.id)
+        participant = (await db.execute(p_stmt)).scalar_one_or_none()
+    else:
+        # Create user account for student participant
+        user = User(
+            id=uuid.uuid4(),
+            email=clean_email,
+            full_name=full_name,
+            hashed_password=get_password_hash(generate_secure_token(16)),
+            role=UserRole.PARTICIPANT,
+            is_active=True,
+            must_change_password=False,
+        )
+        db.add(user)
+        await db.flush()
+
+        rand_code = f"SL-2026-{random.randint(100, 999)}"
+        participant = Participant(
+            participant_id=uuid.uuid4(),
+            user_id=user.id,
+            research_code=rand_code,
+            study_group=random.choice([StudyGroup.INTERVENTION, StudyGroup.CONTROL]),
+            is_active=True,
+        )
+        db.add(participant)
+        await db.commit()
+
+    # Mint authenticated session
+    session_id, csrf_token = await session_store.create_session(
+        user_id=user.id,
+        email=user.email,
+        role=user.role.value if hasattr(user.role, "value") else str(user.role),
+        must_change_password=user.must_change_password,
+        participant_id=participant.participant_id if participant else None,
+        participant_code=participant.research_code if participant else None,
+    )
+
+    response.set_cookie(
+        key=settings.SESSION_COOKIE_NAME,
+        value=session_id,
+        max_age=settings.SESSION_EXPIRE_SECONDS,
+        httponly=True,
+        secure=settings.COOKIE_SECURE,
+        samesite=settings.COOKIE_SAMESITE,
+        path="/",
+    )
+    response.set_cookie(
+        key=settings.CSRF_COOKIE_NAME,
+        value=csrf_token,
+        max_age=settings.SESSION_EXPIRE_SECONDS,
+        httponly=False,
+        secure=settings.COOKIE_SECURE,
+        samesite=settings.COOKIE_SAMESITE,
+        path="/",
+    )
+
+    await AuditService.log_login_success(
+        db=db,
+        user_id=user.id,
+        role=user.role.value if hasattr(user.role, "value") else str(user.role),
+        ip_address=client_ip,
+        user_agent=user_agent,
+    )
+
+    return LoginResponse(
+        user=UserResponse(
+            id=user.id,
+            email=user.email,
+            full_name=user.full_name,
+            role=user.role.value if hasattr(user.role, "value") else str(user.role),
+            is_active=user.is_active,
+            must_change_password=user.must_change_password,
+            participant_id=participant.participant_id if participant else None,
+            participant_code=participant.research_code if participant else None,
+        ),
+        csrf_token=csrf_token,
+        message="Google sign-in successful",
     )
 
 

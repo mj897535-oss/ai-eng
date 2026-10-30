@@ -72,6 +72,10 @@ class Settings(BaseSettings):
     DEFAULT_STT_VERSION: str = "mock-stt-v1"
     MAX_COHORT_SIZE: int = 120
 
+    # Google OAuth / SSO Configuration
+    GOOGLE_CLIENT_ID: str | None = None
+    GOOGLE_CLIENT_SECRET: str | None = None
+
     # Phase P8 Error Analysis & Evidence Lens Configuration
     ANNOTATION_CONFIDENCE_THRESHOLD: float = 0.85
     REVIEW_ALL_MODE: bool = False
