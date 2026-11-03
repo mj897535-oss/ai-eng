@@ -445,3 +445,24 @@ async def get_stt_metrics(
 
 
 
+
+
+@router.put("/upload/{storage_path:path}")
+async def direct_storage_upload(
+    storage_path: str,
+    request: Request,
+) -> Response:
+    """Accepts direct audio upload when MockStorageProvider or internal storage is used."""
+    body = await request.body()
+    content_type = request.headers.get("content-type", "audio/webm")
+    storage_provider.upload_file(storage_path, body, content_type)
+    return Response(status_code=status.HTTP_200_OK)
+
+
+@router.get("/download/{storage_path:path}")
+async def direct_storage_download(
+    storage_path: str,
+) -> Response:
+    """Serves direct audio playback when MockStorageProvider is used."""
+    data = storage_provider.get_file(storage_path)
+    return Response(content=data, media_type="audio/webm")

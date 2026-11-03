@@ -260,14 +260,20 @@ export function AudioRecorder({
         uploadHeaders["x-amz-server-side-encryption"] = presigned.headers["x-amz-server-side-encryption"];
       }
 
-      const s3Upload = await fetch(presigned.upload_url, {
+      // Support relative upload URLs in full-stack container environments
+      let uploadTargetUrl = presigned.upload_url;
+      if (uploadTargetUrl.startsWith("http://testserver")) {
+        uploadTargetUrl = uploadTargetUrl.replace("http://testserver", "");
+      }
+
+      const s3Upload = await fetch(uploadTargetUrl, {
         method: "PUT",
         headers: uploadHeaders,
         body: recordedBlob,
       });
 
       if (!s3Upload.ok) {
-        throw new Error("Direct audio upload failed. Please check network connectivity.");
+        throw new Error(`Direct audio upload failed (${s3Upload.status}). Please check network connectivity.`);
       }
 
       setUploadProgress(75);

@@ -189,7 +189,7 @@ class MockStorageProvider(StorageProvider):
     ) -> dict[str, Any]:
         token = str(uuid.uuid4())
         expiry_ts = time.time() + expires_in
-        upload_url = f"http://testserver/mock-s3-upload/{key}?token={token}"
+        upload_url = f"/api/v1/assessments/upload/{key}?token={token}"
         self.presigned_urls[token] = expiry_ts
 
         return {
@@ -211,7 +211,7 @@ class MockStorageProvider(StorageProvider):
     ) -> str:
         token = str(uuid.uuid4())
         self.presigned_urls[token] = time.time() + expires_in
-        return f"http://testserver/mock-s3-download/{key}?token={token}"
+        return f"/api/v1/assessments/download/{key}?token={token}"
 
     def object_exists(self, key: str) -> bool:
         return key in self.objects
