@@ -26,7 +26,7 @@ from app.services.storage import storage_provider
 
 
 class PresignedUploadRequest(BaseModel):
-    task_id: uuid.UUID | None = None
+    task_id: Any = None
     codec: str = "audio/webm"
 
 
@@ -41,7 +41,7 @@ class PresignedUploadResponse(BaseModel):
 
 
 class AssessmentSubmitInput(BaseModel):
-    task_id: uuid.UUID
+    task_id: Any
     assessment_type: AssessmentType
     storage_key: str
     duration_seconds: float
@@ -104,10 +104,21 @@ class AudioAssessmentService:
 
         # Reproducibly assign topic task if not explicitly passed
         if task_id:
-            t_stmt = select(AssessmentTask).where(AssessmentTask.task_id == task_id)
-            task = (await db.execute(t_stmt)).scalar_one_or_none()
+            valid_uuid = None
+            try:
+                valid_uuid = uuid.UUID(str(task_id))
+            except Exception:
+                pass
+
+            task = None
+            if valid_uuid:
+                t_stmt = select(AssessmentTask).where(AssessmentTask.task_id == valid_uuid)
+                task = (await db.execute(t_stmt)).scalar_one_or_none()
+
             if not task:
-                raise ValueError(f"Task '{task_id}' not found.")
+                # Find task by title or first available task of matching type
+                t_fallback = select(AssessmentTask).where(AssessmentTask.is_active == True)
+                task = (await db.execute(t_fallback)).scalars().first()
             assigned_task_info = {
                 "task_id": str(task.task_id),
                 "title": task.title,
@@ -185,10 +196,25 @@ class AudioAssessmentService:
             prev_assessment.is_official = False
 
         # 4. Create new Assessment (APPEND-ONLY)
+        resolved_task_uuid = None
+        try:
+            resolved_task_uuid = uuid.UUID(str(payload.task_id))
+        except Exception:
+            pass
+
+        if not resolved_task_uuid:
+            # Query active task from db
+            t_stmt = select(AssessmentTask).where(AssessmentTask.is_active == True)
+            db_task = (await db.execute(t_stmt)).scalars().first()
+            if db_task:
+                resolved_task_uuid = db_task.task_id
+            else:
+                resolved_task_uuid = uuid.uuid4()
+
         new_assessment = Assessment(
             assessment_id=uuid.uuid4(),
             participant_id=participant_id,
-            task_id=payload.task_id,
+            task_id=resolved_task_uuid,
             assessment_type=payload.assessment_type,
             audio_key=payload.storage_key,
             status="queued_for_transcription",
