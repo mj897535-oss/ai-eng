@@ -104,16 +104,62 @@ export function TutorChat({
     }
   };
 
-  // Toggle Simulated Mic Input
+  // Speech Recognition Reference
+  const recognitionRef = useRef<any>(null);
+
+  // Real Speech-to-Text Microphone Handler using Browser Web Speech API
   const handleToggleMic = () => {
-    if (!isRecording) {
-      setIsRecording(true);
-      // Simulate speaking recognition
-      setTimeout(() => {
+    if (isRecording) {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {}
+      }
+      setIsRecording(false);
+      return;
+    }
+
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      alert("Speech recognition is not supported in your browser. Please type your message or use Google Chrome or Microsoft Edge.");
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.lang = "en-US";
+
+      recognition.onstart = () => {
+        setIsRecording(true);
+      };
+
+      recognition.onresult = (event: any) => {
+        let transcript = "";
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript;
+        }
+        if (transcript) {
+          setInputText(transcript);
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        console.warn("Speech recognition error:", event.error);
         setIsRecording(false);
-        setInputText("He goes to college every day.");
-      }, 1800);
-    } else {
+      };
+
+      recognition.onend = () => {
+        setIsRecording(false);
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (err) {
+      console.error("Failed to start speech recognition:", err);
       setIsRecording(false);
     }
   };
