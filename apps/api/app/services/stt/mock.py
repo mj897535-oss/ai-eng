@@ -76,8 +76,10 @@ class MockSTTProvider(STTProvider):
 
         key_candidate_str = str(key_candidate)
 
-        # 2. Check direct fixture map
-        if self._custom_default:
+        # 2. Check for real spoken transcript from browser speech recognition
+        if options.get("client_transcript") and options["client_transcript"].strip():
+            chosen_transcript = options["client_transcript"].strip()
+        elif self._custom_default:
             chosen_transcript = self.default_transcript
         elif key_candidate_str in FIXTURE_MAP:
             chosen_transcript = FIXTURE_MAP[key_candidate_str]

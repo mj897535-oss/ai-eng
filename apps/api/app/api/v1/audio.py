@@ -260,6 +260,7 @@ async def authorize_retake(
 @router.post("/{assessment_id}/transcribe", response_model=TranscriptResponse)
 async def trigger_transcription(
     assessment_id: uuid.UUID,
+    payload: ClientTranscriptPayload | None = None,
     force_retry: bool = Query(default=False),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -276,10 +277,12 @@ async def trigger_transcription(
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
 
     try:
+        client_text = payload.client_transcript if payload else None
         updated = await stt_pipeline_service.process_transcription_job(
             db=db,
             assessment_id=assessment_id,
             force_retry=force_retry,
+            client_transcript=client_text,
         )
         words_data = json.loads(updated.words_json) if updated.words_json else []
         revisions_stmt = (

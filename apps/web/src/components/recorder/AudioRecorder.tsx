@@ -61,6 +61,8 @@ export function AudioRecorder({
   const animFrameRef = useRef<number | null>(null);
   const prepTimerRef = useRef<NodeJS.Timeout | null>(null);
   const speakTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const recognitionRef = useRef<any>(null);
+  const capturedSpeechRef = useRef<string>("");
 
   // Poll transcription after successful submission
   useEffect(() => {
@@ -72,6 +74,7 @@ export function AudioRecorder({
         setSttStatus("transcribing");
         const res = await apiFetch<any>(`/assessments/${submittedAssessmentId}/transcribe`, {
           method: "POST",
+          body: JSON.stringify({ client_transcript: capturedSpeechRef.current || null }),
         });
         if (active && res) {
           setSttStatus(res.status || "transcribed");
@@ -197,6 +200,31 @@ export function AudioRecorder({
       setRecorderState("recording");
       setSpeakingElapsed(0);
 
+      // Start Browser Speech Recognition in parallel to capture real spoken words
+      capturedSpeechRef.current = "";
+      const SpeechRecognition =
+        (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        try {
+          const rec = new SpeechRecognition();
+          rec.continuous = true;
+          rec.interimResults = true;
+          rec.lang = "en-US";
+          rec.onresult = (evt: any) => {
+            let fullText = "";
+            for (let i = 0; i < evt.results.length; i++) {
+              fullText += evt.results[i][0].transcript + " ";
+            }
+            capturedSpeechRef.current = fullText.trim();
+          };
+          rec.onerror = (e: any) => console.warn("Live STT warning:", e);
+          rec.start();
+          recognitionRef.current = rec;
+        } catch (e) {
+          console.warn("Could not start live speech recognition:", e);
+        }
+      }
+
       speakTimerRef.current = setInterval(() => {
         setSpeakingElapsed((prev) => {
           if (prev >= durationSeconds - 1) {
@@ -214,6 +242,11 @@ export function AudioRecorder({
 
   const stopRecording = () => {
     if (speakTimerRef.current) clearInterval(speakTimerRef.current);
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch {}
+    }
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
       mediaRecorderRef.current.stop();
     }

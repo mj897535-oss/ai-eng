@@ -50,6 +50,7 @@ class STTPipelineService:
         db: AsyncSession,
         assessment_id: uuid.UUID,
         force_retry: bool = False,
+        client_transcript: str | None = None,
     ) -> Assessment:
         """Run STT job following the status state machine with dead-letter retries."""
         # 1. Fetch Assessment
@@ -82,6 +83,7 @@ class STTPipelineService:
             options: dict[str, Any] = {
                 "checksum": assessment.audio_checksum,
                 "audio_duration": assessment.audio_duration_seconds or 60.0,
+                "client_transcript": client_transcript,
             }
 
             # If using real Whisper adapter or needed, retrieve audio bytes
